@@ -1,0 +1,1240 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="theme-color" content="#1565c0">
+<title>音声棚卸(在庫帳連携)v0.6</title>
+<style>
+  /* ===== 見た目の設定 ===== */
+  :root {
+    --bg: #f4f6f8; --card: #fff; --text: #1f2933; --sub: #52606d; --line: #d9e2ec;
+    --blue: #1565c0; --red: #c62828; --green: #2e7d32; --orange: #b45309; --yellow: #fff8e1;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; background: var(--bg); color: var(--text);
+    font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, "Noto Sans JP", sans-serif;
+    font-size: 18px; line-height: 1.5;
+  }
+  header { background: var(--blue); color: #fff; padding: 10px 16px; }
+  header h1 { margin: 0; font-size: 20px; }
+  #fileInfo { font-size: 14px; opacity: .9; }
+  .demo { background: #fde68a; color: #78350f; padding: 6px 16px; font-size: 14px; font-weight: bold; }
+  main { max-width: 760px; margin: 0 auto; padding: 12px 16px 40px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
+  .top { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
+  .top label { font-size: 14px; color: var(--sub); display: block; }
+  .top input { font-size: 18px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; width: 11em; }
+  button { font-family: inherit; }
+  .btn { font-size: 17px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
+  .btn.primary { background: var(--green); color: #fff; border: none; font-weight: bold; }
+
+  /* 棚卸表(製品・原料・資材)の切り替え */
+  .books { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  .books .label { width: 100%; font-size: 14px; color: var(--sub); }
+  .bookbtn {
+    flex: 1 1 8em; font-size: 18px; font-weight: bold; padding: 12px 10px; border-radius: 10px;
+    border: 2px solid var(--line); background: #fff; color: var(--text); cursor: pointer;
+  }
+  .bookbtn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  .bookbtn:disabled { opacity: .6; cursor: wait; }
+  #bookName { font-size: 17px; font-weight: bold; }
+
+  /* お知らせ(登録しました など) */
+  #banner { display: none; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 19px; font-weight: bold; }
+  #banner.ok { display: block; background: #e8f5e9; color: var(--green); border: 2px solid #a5d6a7; }
+  #banner.warn { display: block; background: #fff3e0; color: var(--orange); border: 2px solid #ffcc80; }
+  #banner .sub { display: block; font-size: 15px; font-weight: normal; color: var(--text); margin-top: 2px; }
+  #banner .row-btns { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
+  #banner .btn { font-size: 16px; padding: 6px 12px; }
+
+  /* マイクボタン */
+  .mic-area { text-align: center; }
+  .mic {
+    width: 130px; height: 130px; border-radius: 50%; border: none; background: var(--blue); color: #fff;
+    font-size: 17px; font-weight: bold; cursor: pointer;
+    display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+    box-shadow: 0 4px 12px rgba(0,0,0,.2); -webkit-tap-highlight-color: transparent;
+  }
+  .mic svg { width: 48px; height: 48px; fill: currentColor; }
+  .mic.listening { background: var(--red); animation: pulse 1.2s infinite; }
+  .mic:disabled { background: #9aa5b1; box-shadow: none; cursor: not-allowed; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(198,40,40,.5); } 70% { box-shadow: 0 0 0 22px rgba(198,40,40,0); } 100% { box-shadow: 0 0 0 0 rgba(198,40,40,0); }
+  }
+  .hint { font-size: 15px; color: var(--sub); margin: 8px 0; }
+  .howto {
+    background: #e3f2fd; border: 2px solid #90caf9; border-radius: 10px;
+    padding: 10px 12px; margin: 0 0 12px; text-align: center;
+  }
+  .howto .big { font-size: 20px; font-weight: bold; color: #0d47a1; }
+  .howto .ex { font-size: 24px; font-weight: bold; color: #0d47a1; }
+  .howto .ex span { white-space: nowrap; display: inline-block; margin: 0 4px; }
+  .howto .note { font-size: 14px; color: var(--text); margin-top: 4px; }
+  .live { min-height: 1.9em; font-size: 21px; padding: 4px 10px; border-radius: 8px; background: #f0f4f8; color: var(--sub); }
+
+  /* 探す画面 */
+  .search-row { display: flex; gap: 8px; margin-top: 10px; }
+  .search-row input { flex: 1; min-width: 0; font-size: 18px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  .chips { display: flex; gap: 8px; margin: 10px 0 6px; flex-wrap: wrap; }
+  .chip { font-size: 16px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .chip.on { background: var(--blue); color: #fff; border-color: var(--blue); }
+  #resultInfo { font-size: 15px; color: var(--sub); margin: 4px 2px 8px; }
+  .item {
+    display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font-size: 16px; color: var(--text);
+  }
+  .item:active { background: #e3f2fd; }
+  .item.done { background: #f1f8f1; border-color: #c8e6c9; }
+  .item .name { font-size: 19px; font-weight: bold; display: flex; justify-content: space-between; gap: 8px; }
+  .item .meta { color: var(--sub); font-size: 15px; }
+  .item .best { color: var(--text); font-weight: bold; }
+  .badge { font-size: 14px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; align-self: flex-start; }
+  .badge.done { background: var(--green); color: #fff; }
+  .unit { display: inline-block; font-weight: bold; color: #fff; background: #607d8b; border-radius: 5px; padding: 0 6px; }
+
+  /* 似た行のまとまり(規格・賞味・品名の違いを目立たせる) */
+  .group { border: 2px solid #ffcc80; background: #fffaf2; border-radius: 12px; padding: 8px 8px 0; margin-bottom: 10px; }
+  .group-head { font-size: 15px; color: var(--orange); font-weight: bold; margin: 0 4px 6px; }
+  .group .item { margin-bottom: 8px; }
+  .diff { background: #ffe0b2; color: #7c2d12; font-weight: bold; border-radius: 4px; padding: 0 4px; outline: 2px solid #fb8c00; outline-offset: -1px; }
+  mark.diff { background: #ffe0b2; }
+  .unit.diff { background: #e65100; color: #fff; outline: none; }
+  .item.zero { opacity: .62; }
+  .tag-zero { font-size: 13px; color: var(--sub); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
+
+  /* 数を話す画面 */
+  #qtyScreen { display: none; }
+  .selected { background: var(--yellow); border: 2px solid #ffe082; }
+  .selected .name { font-size: 22px; font-weight: bold; }
+  .selected .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 6px; font-size: 17px; }
+  .selected .facts dt { color: var(--sub); }
+  .selected .facts dd { margin: 0; font-weight: bold; }
+  .big-best { font-size: 22px; }
+  .manual { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
+  .manual input { width: 7em; font-size: 22px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; text-align: right; }
+  .back { margin-top: 12px; width: 100%; }
+  /* 似た行があるときの念押し */
+  #confirmHead { display: none; font-size: 17px; font-weight: bold; color: var(--orange); margin-bottom: 4px; }
+  .selected.confirm { border-color: #fb8c00; }
+  .selected.confirm #confirmHead { display: block; }
+  #similarBox { display: none; }
+  #similarBox.show { display: block; }
+  #similarBox h3 { margin: 0 0 6px; font-size: 16px; color: var(--sub); }
+  .sib { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; font-size: 15px; cursor: pointer; color: var(--text); }
+  .sib .go { float: right; color: var(--blue); font-weight: bold; }
+
+  /* 訂正・足す */
+  #modeBox { display: none; border: 2px solid #90caf9; background: #e3f2fd; }
+  #modeBox.show { display: block; }
+  #modeBox.add { border-color: #a5d6a7; background: #e8f5e9; }
+  #modeNow { font-size: 18px; }
+  #modeNow b { font-size: 24px; }
+  #modeText { font-size: 19px; font-weight: bold; color: #0d47a1; margin: 2px 0 8px; }
+  #modeBox.add #modeText { color: var(--green); }
+  #modeToggle { font-size: 16px; }
+
+  /* 記録を見る・直す */
+  #logScreen { display: none; }
+  .log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
+  .log-head h2 { margin: 0; font-size: 19px; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .rec.gone { background: #f5f5f5; color: var(--sub); }
+  .rec .top-line { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
+  .rec .rname { font-size: 18px; font-weight: bold; }
+  .rec .qty { font-size: 26px; font-weight: bold; white-space: nowrap; }
+  .rec.gone .qty { text-decoration: line-through; font-size: 20px; }
+  .rec .meta { color: var(--sub); font-size: 15px; }
+  .rec .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
+  .rec .acts .btn { font-size: 16px; padding: 7px 12px; }
+  .btn.danger { color: var(--red); border-color: #ef9a9a; }
+  .btn.danger.sure { background: var(--red); color: #fff; border-color: var(--red); font-weight: bold; }
+  .badge.applied { background: #1565c0; color: #fff; }
+  .badge.gone { background: #9aa5b1; color: #fff; }
+  .badge.fixed { background: #fb8c00; color: #fff; }
+  .opt { font-size: 15px; color: var(--sub); display: inline-flex; align-items: center; gap: 4px; }
+
+  #status { text-align: center; color: var(--sub); padding: 20px 0; }
+  @media (max-width: 520px) {
+    .howto .big { font-size: 18px; }
+    .howto .ex { font-size: 21px; }
+    .selected .facts { font-size: 16px; }
+    .top input { width: 100%; }
+    .top > div { flex: 1 1 100%; }
+    .top > .btn { flex: 1 1 auto; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>音声で棚卸 <span id="bookName"></span></h1>
+  <div id="fileInfo">在庫帳を読み込んでいます…</div>
+</header>
+<div id="demoBar" class="demo" style="display:none">デモモード:在庫帳にはつながっていません(見本のデータで動きます)</div>
+
+<main>
+  <section class="card books" id="books" style="display:none">
+    <div class="label">どの棚卸表を数えますか(押すと切り替わります)</div>
+  </section>
+  <section class="card top">
+    <div><label for="person">担当者</label><input id="person" type="text" placeholder="例:山田"></div>
+    <button id="reloadBtn" class="btn" type="button">最新にする</button>
+    <button id="logBtn" class="btn" type="button">記録を見る・直す</button>
+  </section>
+
+  <div id="banner"></div>
+  <div id="status"></div>
+
+  <!-- ① 探す画面 -->
+  <section id="searchScreen" style="display:none">
+    <div class="card mic-area">
+      <button id="searchMic" class="mic" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+        <span>品名を話す</span>
+      </button>
+      <p class="hint">品名の一部を話してください(例:「バターチキン」「シチュー」)</p>
+      <div id="searchLive" class="live"></div>
+      <div class="search-row">
+        <input id="searchInput" type="search" placeholder="文字で探す">
+        <button id="clearSearch" class="btn" type="button">全部表示</button>
+      </div>
+    </div>
+    <div class="chips">
+      <button class="chip on" data-filter="todo" type="button">まだ数えていない <span id="todoCount">0</span></button>
+      <button class="chip" data-filter="all" type="button">全部 <span id="allCount">0</span></button>
+    </div>
+    <div id="resultInfo"></div>
+    <div id="results"></div>
+  </section>
+
+  <!-- ② 数を話す画面 -->
+  <section id="qtyScreen">
+    <div class="card selected" id="selCard">
+      <div id="confirmHead">似た行があります。この行で合っていますか?</div>
+      <div class="name" id="selName"></div>
+      <dl class="facts">
+        <dt>規格</dt><dd id="selSpec"></dd>
+        <dt>単位</dt><dd id="selUnit"></dd>
+        <dt>賞味</dt><dd class="big-best" id="selBest"></dd>
+        <dt>種類</dt><dd id="selKind"></dd>
+        <dt>理論値</dt><dd id="selTheory"></dd>
+        <dt>入力済み</dt><dd id="selEntered"></dd>
+      </dl>
+    </div>
+    <div class="card" id="similarBox">
+      <h3>ほかの似た行(違うときは押して選び直す)</h3>
+      <div id="similarList"></div>
+    </div>
+    <div class="card" id="modeBox">
+      <div id="modeNow"></div>
+      <div id="modeText"></div>
+      <button id="modeToggle" class="btn" type="button">別の場所の分として足す</button>
+    </div>
+    <div class="card mic-area">
+      <div class="howto">
+        <div class="big">数は「です」や単位を付けて話す</div>
+        <div class="ex" id="howtoEx"><span>「5です」</span><span>「3袋」</span><span>「2ケース」</span></div>
+        <div class="note">「5」だけだと聞き取れないことがあります。<br>ないときは「なし」、半分は「0.5です」</div>
+      </div>
+      <button id="qtyMic" class="mic" type="button">
+        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+        <span id="qtyMicLabel">数を話す</span>
+      </button>
+      <div id="qtyLive" class="live" data-prompt="(「5です」のように話してください)"></div>
+      <div class="manual">
+        <input id="qtyInput" type="text" inputmode="decimal" placeholder="数">
+        <button id="qtySubmit" class="btn primary" type="button">登録</button>
+      </div>
+      <button id="backBtn" class="btn back" type="button">戻る(選び直す)</button>
+    </div>
+  </section>
+
+  <!-- ③ 記録を見る・直す画面 -->
+  <section id="logScreen">
+    <div class="card">
+      <div class="log-head">
+        <h2>今月の記録(新しい順)</h2>
+        <button id="logBack" class="btn" type="button">数える画面に戻る</button>
+      </div>
+      <div class="chips">
+        <button class="chip lchip on" data-who="me" type="button">自分の記録</button>
+        <button class="chip lchip" data-who="all" type="button">全員の記録</button>
+      </div>
+      <label class="opt"><input id="logShowGone" type="checkbox"> 取り消した記録・訂正前の記録も見る</label>
+      <p class="hint">数を間違えたときは「数を直す」、記録そのものが要らないときは「取り消す」。在庫数に反映済みの記録も直せます(事務所が次に反映するときに置き換わります)。</p>
+    </div>
+    <div id="logInfo" class="hint"></div>
+    <div id="logList"></div>
+  </section>
+</main>
+
+<script>
+/* =========================================================
+   0. 設定(Apps Script をデプロイしたら API_URL に貼り付け)
+   ========================================================= */
+const API_URL = 'https://script.google.com/macros/s/AKfycbz4WdJ0EY0Xhc2Dax5f4sK_SpID4xJXFb3X27NBaYWowJR7fRWKDAjEMSfrmtLPgkpAfA/exec';   // 空にするとデモモード
+const API_KEY_DEFAULT = '';   // 携帯版(公開用)はファイルに合言葉を書かない
+// 合言葉:URLの最後の「#key=合言葉」→ この端末に覚えた合言葉 → 上の API_KEY_DEFAULT の順に使う
+// (携帯版はファイルに合言葉を書かず、配った QR コードの URL で渡す。一度開けば端末が覚える)
+const API_KEY = (() => {
+  const fromHash = (location.hash.match(/key=([^&]+)/) || [])[1];
+  try {
+    if (fromHash) { localStorage.setItem('onsei-tanaoroshi-key', fromHash); return fromHash; }
+    return localStorage.getItem('onsei-tanaoroshi-key') || API_KEY_DEFAULT;
+  } catch (e) { return fromHash || API_KEY_DEFAULT; }
+})();
+const DEMO = !API_URL;
+// 似た行(規格違い・賞味違い・似た品名)がある行を選んだとき、すぐに聞き取りを始めず「合っていますか?」と念押しする
+const CONFIRM_SIMILAR = true;
+// 品名がどれくらい似ていたら「似た行」とみなすか(0〜1。大きいほど厳しい)
+const SIMILAR_NAME = 0.6;
+
+/* =========================================================
+   1. データ
+   ========================================================= */
+let items = [];          // 在庫帳の行 {row, kind, code, name, spec, unit, best, prev, theory, count, note}
+let entered = {};        // 行番号 → 音声入力の合計(記録がある行だけ)
+let filter = 'todo';     // 'todo' = まだ数えていない / 'all' = 全部
+let query = '';
+let current = null;      // 選んでいる行
+let lastRecord = null;   // 直前の記録(取り消し用)
+let qtyMode = 'replace'; // 'replace' = 言い直し(訂正) / 'add' = 別の場所の分として足す
+let qtyTarget = null;    // 記録の一覧から「数を直す」を押したときの記録
+let afterQty = 'search'; // 数を登録した後に戻る画面
+let logRecords = [];     // 記録の一覧
+let logWho = 'me';
+let busy = false;
+let books = [];          // つながっている棚卸表 {key, label}
+let bookKey = '';        // いま数えている棚卸表
+
+/* =========================================================
+   2. 在庫帳とのやりとり(Apps Script / デモ)
+   ========================================================= */
+async function apiBooks() {
+  if (DEMO) return demoApi.books();
+  const res = await fetch(API_URL + '?action=books&key=' + encodeURIComponent(API_KEY));
+  return res.json();
+}
+async function apiRows() {
+  if (DEMO) return demoApi.rows(bookKey);
+  const res = await fetch(API_URL + '?action=rows&key=' + encodeURIComponent(API_KEY) + '&book=' + encodeURIComponent(bookKey));
+  return res.json();
+}
+async function apiLog() {
+  if (DEMO) return demoApi.log(bookKey);
+  const res = await fetch(API_URL + '?action=log&key=' + encodeURIComponent(API_KEY) + '&book=' + encodeURIComponent(bookKey));
+  return res.json();
+}
+async function apiPost(body) {
+  if (DEMO) return demoApi.post(Object.assign({ book: bookKey }, body));
+  const res = await fetch(API_URL, {
+    method: 'POST',
+    headers: { 'Content-Type': 'text/plain;charset=utf-8' },  // この形式だと余計な確認通信が起きない
+    body: JSON.stringify(Object.assign({ key: API_KEY, book: bookKey }, body))
+  });
+  return res.json();
+}
+
+// デモ用の見本データ(実際の在庫帳とは関係ありません)
+const demoApi = (() => {
+  const mk = list => list.map((r, i) => ({ row: i + 4, kind: r[0], code: r[1], name: r[2], spec: r[3], unit: r[4], best: r[5], prev: r[6], theory: r[7], count: null, note: '' }));
+  const BOOKS = {
+    seihin: { label: '製品', sheet: '26.10', col: 'L', rows: mk([
+      ['製品', 'C1', 'ビーフカレー中辛', '180g', 'P', '27.08.03', 12, 12],
+      ['製品', 'C1', 'ビーフカレー中辛', '180g×2', '袋', '27.08.03', 4, 4],
+      ['製品', 'C1', 'ビーフカレー中辛', '180g×2×12', 'CS', '27.08.03', 1, 1],
+      ['製品', 'C1', 'ビーフカレー中辛', '180g', 'P', '27.09.15', 0, 480],
+      ['製品', 'C2', 'LSバターチキンカレー', '150g×2', '袋', '27.08.20', 4, 4],
+      ['製品【倉庫】', 'C2', 'LSバターチキンカレー', '150g×2×12×2合', '甲', '27.08.20', 56.5, 56.5],
+      ['製品', 'C3', '北海道クリームシチュー', '1kg', 'P', '27.03.13', 1, 1],
+      ['製品【倉庫】', 'C3', '北海道クリームシチュー', '1kg×5/2合', '甲', '27.06.23', 10, 10],
+      ['製品', 'C4', '煮魚調味液№1　26.09.02製', '1kg', 'P', '28.03.02', 15, 15],
+      ['製品', 'C4', '煮魚調味液№125　26.09.02製', '1kg', 'P', '28.03.02', 6, 6],
+      ['製品', 'C6', '北大ガゴメ入りホタテリゾットの素(袋)', '180g', 'P', '27.03.09', 5, 5],
+      ['製品', 'C6', '北大ガゴメ入りホタテリゾットの素(箱入)', '180g', 'P', '27.03.09', 29, 29],
+      ['外販製品', '', '今川焼(カスタード)', '70g×10個', 'P', '27.01.30', 18, 18]]) },
+    retort: { label: 'B棟3階レトルト', sheet: 'レトルトのみ26.10', col: 'Q', rows: mk([
+      ['レトルト製品', '', '北海道熟成カレー', '180ｇ', 'P', '27.09.07', 3, 0],
+      ['レトルト製品', '', '北海道熟成カレー', '180ｇ', 'P', '27.09.10', 14, 49],
+      ['レトルト製品', '', '和風シーフードスープカレー(中辛)', '300g', 'P', '27.09.09', 18, 18]]) },
+    genryo: { label: '原料', sheet: '26.10', col: 'O', rows: mk([
+      ['製造原料', '', 'しょうゆ　保存料無添加', '10L', 'K', '28.02.', 3420.23, 3054.3],
+      ['製造原料', '', '本みりん　割烹ペット', '20L', 'L', '28.01.', 2814.29, 2809.19],
+      ['製造原料', '', '本料理清酒', '20L', 'K', '26.10.', 40, 40],
+      ['製造原料', '', '玉ねぎ　スライス', '1kg', 'kg', '27.01.', 25, 22]]) },
+    shizai: { label: '資材', sheet: '26.10', col: 'N', rows: mk([
+      ['包装資材', '', '和風シーフードスープカレー(中辛)レトルト小箱', '', '枚', '', 104, 104],
+      ['包装資材', '', '和風シーフードスープカレー(辛口)レトルト小箱', '', '枚', '', 164, 164],
+      ['包装資材', '', 'ダンボール　1kg×10', '', '枚', '', 300, 280]]) }
+  };
+  const log = [];
+  const LIVE = ['未反映', '反映済'];
+  const total = (book, row) => {
+    const xs = log.filter(l => l.book === book && l.row === row && LIVE.includes(l.status));
+    return xs.length ? Math.round(xs.reduce((a, l) => a + l.qty, 0) * 1000) / 1000 : null;
+  };
+  const stamp = () => { const d = new Date(); return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' ' + d.toTimeString().slice(0, 8); };
+  return {
+    books: async () => ({ ok: true, books: Object.entries(BOOKS).map(([key, b]) => ({ key, label: b.label })) }),
+    rows: async (key) => {
+      const bk = BOOKS[key] || BOOKS.seihin;
+      const ent = {};
+      bk.rows.forEach(r => { const t = total(key, r.row); if (t !== null) ent[r.row] = t; });
+      return { ok: true, book: key, label: bk.label, file: '見本の' + bk.label + '棚卸表', sheet: bk.sheet, countColumn: bk.col, countLabel: '10月 在庫数', items: bk.rows, entered: ent };
+    },
+    log: async (key) => ({ ok: true, records: log.filter(l => l.book === key).slice().reverse().map(l => Object.assign({}, l, { fixed: l.prev.length > 0 })) }),
+    post: async (b) => {
+      await new Promise(r => setTimeout(r, 200));
+      if (b.action === 'record') {
+        const it = (BOOKS[b.book] || BOOKS.seihin).rows.find(r => r.row === b.row);
+        let olds = [];
+        if (b.mode === 'replace') {
+          olds = log.filter(l => l.book === b.book && l.row === b.row && LIVE.includes(l.status) && (!b.target || l.id === b.target));
+          if (b.target && !olds.length) return { ok: false, reload: true, error: '直す記録が見つかりません(ほかの人が直したか、取り消された可能性があります)' };
+          olds.forEach(l => { l.prevStatus = l.status; l.status = '訂正済'; });
+        }
+        const id = 'd' + Date.now();
+        log.push({ id, book: b.book, row: b.row, qty: b.qty, status: '未反映', time: stamp(), person: b.person || '(未入力)',
+          name: it.name, spec: it.spec, unit: it.unit, best: it.best, prev: olds.map(l => ({ id: l.id, status: l.prevStatus })) });
+        return { ok: true, id, row: b.row, qty: b.qty, mode: b.mode === 'replace' ? 'replace' : 'add', replaced: olds.length,
+          before: olds.length ? olds.reduce((a, l) => a + l.qty, 0) : null, wasApplied: olds.some(l => l.prevStatus === '反映済'), enteredTotal: total(b.book, b.row) };
+      }
+      if (b.action === 'cancel') {
+        const l = log.find(x => x.id === b.id);
+        if (!l) return { ok: false, error: '記録が見つかりません' };
+        if (!LIVE.includes(l.status)) return { ok: false, reload: true, error: 'この記録はもう取り消されているか、訂正されています(状態:' + l.status + ')' };
+        const was = l.status;
+        l.status = '取消';
+        let restored = 0, restoredQty = 0;
+        (b.restore ? l.prev : []).forEach(pv => { const o = log.find(x => x.id === pv.id); if (o && o.status === '訂正済') { o.status = pv.status || '未反映'; restored++; restoredQty += o.qty; } });
+        return { ok: true, id: b.id, row: l.row, qty: l.qty, wasApplied: was === '反映済', restored, restoredQty: restored ? restoredQty : null, enteredTotal: total(l.book, l.row) };
+      }
+      return { ok: false, error: '不明な操作です' };
+    }
+  };
+})();
+
+// 棚卸表ごとの「数の言い方」の例
+const HOWTO_EX = {
+  genryo: ['「5です」', '「12.5キロ」', '「3本」'],
+  shizai: ['「500枚」', '「5です」', '「2ケース」'],
+  default: ['「5です」', '「3袋」', '「2ケース」']
+};
+// 前に選んだ棚卸表を覚えておく(この端末だけ。使えないときは無視)
+function savedBook() { try { return localStorage.getItem('onsei-tanaoroshi-book') || ''; } catch (e) { return ''; } }
+function saveBook(k) { try { localStorage.setItem('onsei-tanaoroshi-book', k); } catch (e) { /* 何もしない */ } }
+
+async function loadBooks() {
+  if (!DEMO && !API_KEY) {
+    showStatus('合言葉が入っていません。事務所で配られた QR コード(またはリンク)から開いてください。一度開けば、次からはこの端末が覚えています。');
+    return;
+  }
+  showStatus('棚卸表の一覧を読み込んでいます…');
+  try {
+    const r = await apiBooks();
+    if (!r.ok) throw new Error(r.error || '読み込みに失敗しました');
+    books = r.books || [];
+  } catch (e) {
+    showStatus('棚卸表の一覧を読み込めませんでした:' + e.message + '(ネット接続を確認して「最新にする」を押してください)');
+    if (/合言葉/.test(e.message)) { try { localStorage.removeItem('onsei-tanaoroshi-key'); } catch (x) { /* 何もしない */ } }
+    return;
+  }
+  const hashBook = (location.hash.match(/book=([^&]+)/) || [])[1];
+  const want = [hashBook, savedBook()].find(k => k && books.some(b => b.key === k));
+  bookKey = want || (books[0] && books[0].key) || '';
+  renderBooks();
+  await loadRows();
+}
+
+function renderBooks() {
+  const box = $('books');
+  box.querySelectorAll('.bookbtn').forEach(b => b.remove());
+  box.style.display = books.length > 1 ? 'flex' : 'none';
+  for (const bk of books) {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'bookbtn' + (bk.key === bookKey ? ' on' : '');
+    b.textContent = bk.label;
+    b.addEventListener('click', () => switchBook(bk.key));
+    box.appendChild(b);
+  }
+  const cur = books.find(b => b.key === bookKey);
+  $('bookName').textContent = cur ? '― ' + cur.label : '';
+  const ex = HOWTO_EX[bookKey] || HOWTO_EX.default;
+  $('howtoEx').innerHTML = '';
+  ex.forEach(t => { const sp = document.createElement('span'); sp.textContent = t; $('howtoEx').appendChild(sp); });
+}
+
+async function switchBook(key) {
+  if (busy || key === bookKey) return;
+  stopListening();
+  bookKey = key;
+  saveBook(key);
+  items = []; entered = {}; current = null; lastRecord = null; query = ''; logRecords = [];
+  $('searchInput').value = ''; $('searchLive').textContent = ''; $('results').innerHTML = '';
+  clearBanner();
+  renderBooks();
+  document.querySelectorAll('.bookbtn').forEach(b => { b.disabled = true; });
+  await loadRows();
+  document.querySelectorAll('.bookbtn').forEach(b => { b.disabled = false; });
+}
+
+async function loadRows() {
+  if (!books.length) { await loadBooks(); return; }
+  showStatus('棚卸表を読み込んでいます…');
+  showScreen('none');
+  try {
+    const key = bookKey;
+    const r = await apiRows();
+    if (key !== bookKey) return;   // 読み込み中に別の棚卸表に切り替えた
+    if (!r.ok) throw new Error(r.error || '読み込みに失敗しました');
+    items = r.items;
+    entered = r.entered || {};
+    buildSimilar(items);
+    document.getElementById('fileInfo').textContent = r.file + ' ・ シート「' + r.sheet + '」 ・ ' + items.length + '行' +
+      (r.countColumn ? ' ・ 記入先 ' + r.countColumn + '列' : '');
+    showStatus('');
+    showScreen('search');
+    renderList();
+  } catch (e) {
+    showStatus('棚卸表を読み込めませんでした:' + e.message + '(ネット接続を確認して「最新にする」を押してください)');
+  }
+}
+
+/* =========================================================
+   3. 品名で探す(表記ゆれ・聞き間違いにある程度強くする)
+   ========================================================= */
+// 言い方の言い換え(カタカナにそろえた後で置き換え)
+const ALIASES = [
+  ['エルエス', 'ls'], ['エムエムアール', 'mmr'], ['エフディー', 'fd'],
+  ['キログラム', 'kg'], ['キロ', 'kg'], ['グラム', 'g'],
+  ['ケース', 'cs'], ['シーエス', 'cs'], ['パック', 'p']
+];
+// 漢字とかなの書き方の違いをそろえる(音声認識は「大学芋」、在庫帳は「大学いも」など)
+// 読みにくい品名(飛魚子=とびこ など)も、ここに足していけます
+const READINGS = [
+  ['飛魚子', 'トビコ'], ['飛魚', 'トビウオ'], ['玉ねぎ', 'タマネギ'], ['玉ネギ', 'タマネギ'], ['玉葱', 'タマネギ'],
+  ['唐揚げ', 'カラアゲ'], ['唐揚', 'カラアゲ'], ['煮付け', 'ニツケ'], ['煮つけ', 'ニツケ'], ['天ぷら', 'テンプラ'],
+  ['南瓜', 'カボチャ'], ['生姜', 'ショウガ'], ['胡麻', 'ゴマ'], ['醤油', 'ショウユ'], ['醬油', 'ショウユ'], ['味噌', 'ミソ'],
+  ['昆布', 'コンブ'], ['人参', 'ニンジン'], ['大蒜', 'ニンニク'], ['紫蘇', 'シソ'], ['海老', 'エビ'], ['烏賊', 'イカ'],
+  ['芋', 'イモ'], ['葱', 'ネギ'], ['鰊', 'ニシン'], ['鯖', 'サバ'], ['鰯', 'イワシ'], ['鯵', 'アジ'], ['蛸', 'タコ'], ['飴', 'アメ'], ['色', 'イロ']
+];
+function toKatakana(t) {
+  return t.replace(/[ぁ-ゖ]/g, ch => String.fromCharCode(ch.charCodeAt(0) + 0x60));
+}
+function norm(s) {
+  let t = String(s || '').normalize('NFKC').toLowerCase();
+  for (const [a, b] of READINGS) t = t.split(a).join(b);   // 漢字の読みをそろえる
+  t = toKatakana(t);                                         // ひらがな→カタカナ
+  for (const [a, b] of ALIASES) t = t.split(a).join(b);
+  return t.replace(/[\s・()\[\]【】「」、。,.\-ー‐_/ッ]/g, '');   // 記号・長音・小さい「ッ」・空白は無視
+}
+function haystack(it) {
+  if (!it._h) it._h = norm([it.name, it.spec, it.unit, it.kind, it.code, it.best].join(' '));
+  return it._h;
+}
+function bigrams(s) {
+  const out = [];
+  for (let i = 0; i < s.length - 1; i++) out.push(s.slice(i, i + 2));
+  return out;
+}
+// 戻り値:{list, fuzzy}  fuzzy=true のときは「近い候補」
+function search(q, pool) {
+  const tokens = String(q || '').split(/\s+/).map(norm).filter(Boolean);
+  if (!tokens.length) return { list: pool, fuzzy: false };
+  const exact = pool.filter(it => tokens.every(t => haystack(it).includes(t)));
+  if (exact.length) return { list: exact, fuzzy: false };
+  // 言葉が2つ以上で全部はそろわないとき:合う言葉がいちばん多いものを出す(「北欧 がごめ」→「ガゴメ」で探す)
+  if (tokens.length > 1) {
+    const hits = pool
+      .map(it => ({ it, s: tokens.filter(t => t.length >= 2 && haystack(it).includes(t)).length }))
+      .filter(x => x.s > 0);
+    if (hits.length) {
+      const max = Math.max(...hits.map(x => x.s));
+      return { list: hits.filter(x => x.s === max).map(x => x.it), fuzzy: true };
+    }
+  }
+  // それでも見つからないとき:2文字ずつに分けて、どれだけ含まれるかで近いものを探す
+  const grams = bigrams(tokens.join(''));
+  if (!grams.length) return { list: [], fuzzy: true };
+  const scored = pool
+    .map(it => ({ it, s: grams.filter(g => haystack(it).includes(g)).length / grams.length }))
+    .filter(x => x.s >= 0.6)
+    .sort((a, b) => b.s - a.s || a.it.row - b.it.row);
+  return { list: scored.map(x => x.it), fuzzy: true };
+}
+
+/* =========================================================
+   3b. 似た行(規格違い・賞味違い・似た品名)を見つける
+   ========================================================= */
+function nameKey(s) { return String(s || '').normalize('NFKC').toLowerCase().replace(/[\s・()\[\]【】「」、。,.\-ー‐_/ッ（）]/g, ''); }
+function gramSet(s) { const o = new Set(); for (let i = 0; i < s.length - 1; i++) o.add(s.slice(i, i + 2)); return o; }
+function dice(A, B) {
+  if (!A.size || !B.size) return 0;
+  let n = 0; A.forEach(g => { if (B.has(g)) n++; });
+  return 2 * n / (A.size + B.size);
+}
+// 行番号 → 似た行の一覧 [{it, score}](似ている順)
+let similarOf = {};
+function buildSimilar(list) {
+  similarOf = {};
+  const keys = list.map(it => nameKey(it.name));
+  const grams = keys.map(gramSet);
+  for (let i = 0; i < list.length; i++) {
+    for (let j = i + 1; j < list.length; j++) {
+      const score = keys[i] === keys[j] ? 1 : dice(grams[i], grams[j]);
+      if (score < SIMILAR_NAME) continue;
+      (similarOf[list[i].row] = similarOf[list[i].row] || []).push({ it: list[j], score });
+      (similarOf[list[j].row] = similarOf[list[j].row] || []).push({ it: list[i], score });
+    }
+  }
+  Object.values(similarOf).forEach(a => a.sort((x, y) => y.score - x.score || x.it.row - y.it.row));
+}
+function similarRows(it) { return similarOf[it.row] || []; }
+
+// 品名の「違う部分」の位置 [始め, 終わり](同じ名前・違いが大きすぎるときは null)
+function nameDiffSpan(a, b) {
+  if (!a || !b || a === b) return null;
+  let p = 0;
+  while (p < a.length && p < b.length && a[p] === b[p]) p++;
+  let q = 0;
+  while (q < a.length - p && q < b.length - p && a[a.length - 1 - q] === b[b.length - 1 - q]) q++;
+  let start = p, end = a.length - q;
+  const word = /[0-9A-Za-z.０-９Ａ-Ｚａ-ｚ]/;
+  // 「№1」と「№125」のように、数字や英字の途中で切らない
+  while (start > 0 && word.test(a[start - 1]) && (word.test(a[start] || '') || word.test(b[start] || ''))) start--;
+  while (end < a.length && word.test(a[end]) && end > 0 && word.test(a[end - 1] || '')) end++;
+  if (end <= start) return null;
+  if ((end - start) / a.length > 0.7) return null;   // ほとんど全部違うときは印を付けない
+  return [start, end];
+}
+// 品名を、違う部分に印を付けて表示する
+function nameWithMark(it, others) {
+  const frag = document.createDocumentFragment();
+  const other = others.find(o => o.name !== it.name);
+  const span = other ? nameDiffSpan(it.name, other.name) : null;
+  if (!span) { frag.append(it.name); return frag; }
+  const m = document.createElement('mark');
+  m.className = 'diff';
+  m.textContent = it.name.slice(span[0], span[1]);
+  frag.append(it.name.slice(0, span[0]), m, it.name.slice(span[1]));
+  return frag;
+}
+// 仲間の中で値が違う項目(規格・単位・賞味・品名)
+const FIELDS = ['spec', 'unit', 'best', 'name'];
+function diffFields(group) {
+  const f = {};
+  FIELDS.forEach(k => { f[k] = new Set(group.map(it => String(it[k] || ''))).size > 1; });
+  return f;
+}
+// 2つの行で違う項目
+function fieldsDiff(a, b) { return FIELDS.filter(k => String(a[k] || '') !== String(b[k] || '')); }
+// その行を「いちばん近い仲間」と見分けるための項目だけを返す(全部に印を付けるとかえって分かりにくいため)
+function keyDiff(it, others) {
+  let min = Infinity, keys = new Set();
+  for (const o of others) {
+    if (o === it) continue;
+    const d = fieldsDiff(it, o);
+    if (!d.length) continue;
+    if (d.length < min) { min = d.length; keys = new Set(d); } else if (d.length === min) d.forEach(k => keys.add(k));
+  }
+  const f = {};
+  FIELDS.forEach(k => { f[k] = keys.has(k); });
+  return f;
+}
+// 先に見たほうがよい順:まだ数えていない → 理論値がある → 賞味が古い → 行の順
+function bestKey(b) { const m = String(b || '').match(/(\d{2})\.(\d{1,2})\.?(\d{0,2})/); return m ? m[1] + m[2].padStart(2, '0') + (m[3] || '00').padStart(2, '0') : '999999'; }
+function suggestOrder(a, b) {
+  const ca = isCounted(a) ? 1 : 0, cb = isCounted(b) ? 1 : 0;
+  if (ca !== cb) return ca - cb;
+  const za = a.theory > 0 ? 0 : 1, zb = b.theory > 0 ? 0 : 1;
+  if (za !== zb) return za - zb;
+  const ba = bestKey(a.best), bb = bestKey(b.best);
+  if (ba !== bb) return ba < bb ? -1 : 1;
+  return a.row - b.row;
+}
+function isCounted(it) { return Object.prototype.hasOwnProperty.call(entered, it.row); }
+// 見えている候補を「似た行のまとまり」に分ける(並び順は最初に出てきた順)
+function groupResults(list, reorder) {
+  const inList = new Map(list.map((it, i) => [it.row, i]));
+  const parent = list.map((_, i) => i);
+  const find = i => (parent[i] === i ? i : (parent[i] = find(parent[i])));
+  list.forEach((it, i) => similarRows(it).forEach(({ it: o }) => {
+    const j = inList.get(o.row);
+    if (j !== undefined) { const a = find(i), b = find(j); if (a !== b) parent[Math.max(a, b)] = Math.min(a, b); }
+  }));
+  const groups = new Map();
+  list.forEach((it, i) => { const r = find(i); if (!groups.has(r)) groups.set(r, []); groups.get(r).push(it); });
+  let out = [...groups.values()];
+  out.forEach(g => g.sort(suggestOrder));
+  // 探した言葉があるときは、理論値のある行を含むまとまりを先に出す
+  if (reorder) out = out.map((g, i) => ({ g, i, z: g.some(it => it.theory > 0) ? 0 : 1 })).sort((x, y) => x.z - y.z || x.i - y.i).map(x => x.g);
+  return out;
+}
+
+/* =========================================================
+   4. 数の聞き取り(「3」「0.5」「十二」「1個半」「なし」)
+   ========================================================= */
+function toNumber(s) {
+  if (/^[0-9]+(\.[0-9]+)?$/.test(s)) return Number(s);
+  const DIGIT = { '〇': 0, '零': 0, '一': 1, '二': 2, '三': 3, '四': 4, '五': 5, '六': 6, '七': 7, '八': 8, '九': 9 };
+  const UNIT10 = { '十': 10, '百': 100, '千': 1000 };
+  let total = 0, section = 0, cur = null;
+  for (const ch of s) {
+    if (/[0-9]/.test(ch)) cur = (cur ?? 0) * 10 + Number(ch);
+    else if (ch in DIGIT) cur = (cur ?? 0) * 10 + DIGIT[ch];
+    else if (ch in UNIT10) { section += (cur ?? 1) * UNIT10[ch]; cur = null; }
+    else if (ch === '万') { total += ((section + (cur ?? 0)) || 1) * 10000; section = 0; cur = null; }
+    else return NaN;
+  }
+  return total + section + (cur ?? 0);
+}
+function parseQuantity(raw) {
+  let t = String(raw || '').normalize('NFKC').replace(/\s/g, '');
+  t = t.replace(/([0-9]),(?=[0-9]{3})/g, '$1').replace(/ゼロ/g, '0').replace(/([0-9]+)点([0-9]+)/g, '$1.$2');
+  if (/^(なし|無し|ない|ありません|在庫なし|在庫無し)(です)?[。.]?$/.test(t)) return 0;
+  if (/^(半分|はんぶん)(です)?[。.]?$/.test(t)) return 0.5;
+  const nums = t.match(/[0-9]+\.[0-9]+|[0-9〇零一二三四五六七八九十百千万]+/g);
+  if (!nums) return readingQuantity(t);
+  const last = nums[nums.length - 1];
+  let n = toNumber(last);
+  if (isNaN(n)) return null;
+  if (t.slice(t.lastIndexOf(last) + last.length).includes('半')) n += 0.5;   // 「1個半」→1.5
+  return n;
+}
+// 数字にならずにカタカナで返ってきたとき(「ゴコン」=5個、「ハンケース」=半ケース など)
+const NUM_READINGS = [
+  ['キュウ', 9], ['ジュウ', 10], ['ジュッ', 10], ['ジッ', 10], ['イチ', 1], ['イッ', 1], ['サン', 3], ['ヨン', 4],
+  ['ロク', 6], ['ロッ', 6], ['ナナ', 7], ['シチ', 7], ['ハチ', 8], ['ハッ', 8], ['ニ', 2], ['ゴ', 5], ['ヨ', 4]
+];
+const COUNTER_RE = '(コン|コ|ケース|ケ|フクロ|ブクロ|ホン|ポン|ボン|コウ|ハコ|バコ|パック|マイ|キロ|リットル|カン|ガン|ロール|カンカン)?(デス)?';
+function readingQuantity(t) {
+  const k = toKatakana(t).replace(/[。.]/g, '');
+  if (new RegExp('^(半|ハン)' + COUNTER_RE + '$').test(k)) return 0.5;   // 「パンケース」は「3ケース」の聞き間違いのこともあるので使わない
+  for (const [w, n] of NUM_READINGS) {
+    if (new RegExp('^' + w + COUNTER_RE + '$').test(k)) return n;
+  }
+  return null;
+}
+function isCommand(raw, words) {
+  const t = String(raw || '').normalize('NFKC').replace(/[\s。、.!]/g, '');
+  return words.includes(t);
+}
+const UNDO_WORDS = ['取り消し', '取消', '取消し', 'とりけし', '取り消す'];
+const BACK_WORDS = ['戻る', 'もどる', 'キャンセル', '選び直す', 'やり直し'];
+
+/* =========================================================
+   5. 音声認識(押して話す → 話し終わると自動で止まる)
+   ========================================================= */
+const SpeechRec = window.SpeechRecognition || window.webkitSpeechRecognition;
+let recognition = null;
+
+function listen(micBtn, liveEl, onFinal, onNothing) {
+  if (!SpeechRec) return;
+  if (recognition) { recognition.stop(); return; }   // 話し中にもう一度押すと止める
+  const rec = new SpeechRec();
+  rec.lang = 'ja-JP';
+  rec.interimResults = true;
+  rec.continuous = false;
+  rec.maxAlternatives = 3;
+  let heard = false;   // 何か聞き取れたか
+  rec.onstart = () => {
+    micBtn.classList.add('listening');
+    micBtn.querySelector('span').dataset.label = micBtn.querySelector('span').textContent;
+    micBtn.querySelector('span').textContent = '聞いています…';
+    liveEl.textContent = liveEl.dataset.prompt || '(どうぞ話してください)';
+  };
+  rec.onresult = (ev) => {
+    let interim = '';
+    for (let i = ev.resultIndex; i < ev.results.length; i++) {
+      const r = ev.results[i];
+      if (r.isFinal) {
+        heard = true;
+        const cands = Array.from(r).map(a => a.transcript);
+        liveEl.textContent = cands[0];
+        onFinal(cands);
+      } else {
+        interim += r[0].transcript;
+      }
+    }
+    if (interim) liveEl.textContent = interim;
+  };
+  rec.onerror = (ev) => {
+    if (ev.error === 'no-speech') return;   // 「聞き取れなかった」は onend でまとめて案内する
+    const msg = {
+      'no-speech': '声が聞こえませんでした。もう一度押して話してください。',
+      'audio-capture': 'マイクが見つかりません。',
+      'not-allowed': 'マイクの使用が許可されていません。アドレスバーのマイクのマーク(iPhone は「ぁあ」/「設定」→ Safari → マイク)から「許可」にしてください。',
+      'service-not-allowed': 'この端末では音声入力が使えない設定です。iPhone は「設定」→「一般」→「キーボード」→「音声入力」をオンにしてください。',
+      'network': 'インターネットにつながっていないようです。'
+    }[ev.error];
+    if (ev.error !== 'aborted') showBanner('warn', msg || ('音声認識でエラー(' + ev.error + ')'));
+  };
+  rec.onend = () => {
+    micBtn.classList.remove('listening');
+    const span = micBtn.querySelector('span');
+    if (span.dataset.label) span.textContent = span.dataset.label;
+    const active = recognition === rec;   // 画面を切り替えて止めた場合は false
+    if (active) recognition = null;
+    if (active && !heard) {
+      liveEl.textContent = '';
+      if (onNothing) onNothing();
+    }
+  };
+  recognition = rec;
+  try { rec.start(); } catch (e) { recognition = null; }
+}
+function stopListening() {
+  if (!recognition) return;
+  const r = recognition;
+  recognition = null;
+  r.abort();
+}
+
+/* =========================================================
+   6. 画面の表示
+   ========================================================= */
+const $ = id => document.getElementById(id);
+
+function showStatus(text) { $('status').textContent = text; $('status').style.display = text ? 'block' : 'none'; }
+
+function showScreen(name) {
+  stopListening();
+  $('searchScreen').style.display = name === 'search' ? 'block' : 'none';
+  $('qtyScreen').style.display = name === 'qty' ? 'block' : 'none';
+  $('logScreen').style.display = name === 'log' ? 'block' : 'none';
+  window.scrollTo(0, 0);
+}
+
+function fmtNum(n) { return n === null || n === undefined ? '-' : String(n); }
+
+function renderList() {
+  const counted = isCounted;
+  const todo = items.filter(it => !counted(it));
+  $('todoCount').textContent = todo.length + '件';
+  $('allCount').textContent = items.length + '件';
+  document.querySelectorAll('.chip[data-filter]').forEach(c => c.classList.toggle('on', c.dataset.filter === filter));
+
+  const pool = filter === 'todo' ? todo : items;
+  const { list, fuzzy } = search(query, pool);
+  $('resultInfo').textContent =
+    (query ? '「' + query + '」' + (fuzzy ? 'に近い候補 ' : 'で ') : '') + list.length + '件' +
+    (list.length === 0 && filter === 'todo' && query ? '(「全部」に切り替えると、数え終わった行も探せます)' : '');
+
+  const box = $('results');
+  box.innerHTML = '';
+  const groups = groupResults(list.slice(0, 200), !!query);
+  const LABEL = { spec: '規格', unit: '単位', best: '賞味', name: '品名' };
+  for (const g of groups) {
+    const diff = g.length > 1 ? diffFields(g) : {};
+    let parent = box;
+    if (g.length > 1) {
+      parent = document.createElement('div');
+      parent.className = 'group';
+      const h = document.createElement('div');
+      h.className = 'group-head';
+      const ks = Object.keys(LABEL).filter(k => diff[k]).map(k => LABEL[k]);
+      h.textContent = '似た行が ' + g.length + ' 行あります' + (ks.length ? ' ― 違うところ:' + ks.join('・') : '') + '(上ほど見る順のおすすめ)';
+      parent.appendChild(h);
+      box.appendChild(parent);
+    }
+    for (const it of g) parent.appendChild(itemButton(it, g, g.length > 1 ? keyDiff(it, g) : {}));
+  }
+}
+
+function itemButton(it, group, diff) {
+  const b = document.createElement('button');
+  b.type = 'button';
+  b.className = 'item' + (isCounted(it) ? ' done' : '') + (group.length > 1 && !(it.theory > 0) ? ' zero' : '');
+  const name = document.createElement('div');
+  name.className = 'name';
+  const nm = document.createElement('span');
+  nm.append(diff.name ? nameWithMark(it, similarRows(it).map(x => x.it).filter(o => group.includes(o))) : it.name);
+  name.appendChild(nm);
+  if (isCounted(it)) {
+    const bd = document.createElement('span');
+    bd.className = 'badge done';
+    bd.textContent = '入力済 ' + entered[it.row];
+    name.appendChild(bd);
+  } else if (group.length > 1 && !(it.theory > 0)) {
+    const z = document.createElement('span');
+    z.className = 'tag-zero';
+    z.textContent = '理論値0';
+    name.appendChild(z);
+  }
+  const m1 = document.createElement('div');
+  m1.className = 'meta';
+  const spec = document.createElement('span');
+  spec.textContent = it.spec || '';
+  if (diff.spec) spec.className = 'diff';
+  const unit = document.createElement('span');
+  unit.className = 'unit' + (diff.unit ? ' diff' : '');
+  unit.textContent = it.unit || '-';
+  const best = document.createElement('span');
+  best.className = 'best' + (diff.best ? ' diff' : '');
+  best.textContent = '賞味 ' + (it.best || '-');
+  m1.append(spec, ' ', unit, ' ', best);
+  const m2 = document.createElement('div');
+  m2.className = 'meta';
+  m2.textContent = it.kind + ' ・ 理論値 ' + fmtNum(it.theory) + (it.note ? ' ・ ' + it.note : '') + ' ・ ' + it.row + '行目';
+  b.append(name, m1, m2);
+  b.addEventListener('click', () => openQty(it));
+  return b;
+}
+
+// opts.target = 記録の一覧から「数を直す」を押したときの記録
+function openQty(it, opts) {
+  current = it;
+  qtyTarget = (opts && opts.target) || null;
+  afterQty = qtyTarget ? 'log' : 'search';
+  qtyMode = 'replace';
+  const sims = similarRows(it).map(x => x.it);
+  const confirm = CONFIRM_SIMILAR && sims.length > 0 && !qtyTarget;
+  const diff = confirm ? keyDiff(it, sims) : {};
+  const setFact = (id, text, isDiff) => { const el = $(id); el.textContent = text; el.classList.toggle('diff', !!isDiff); };
+  $('selName').textContent = '';
+  $('selName').append(confirm && diff.name ? nameWithMark(it, sims) : it.name);
+  setFact('selSpec', it.spec || '-', diff.spec);
+  setFact('selUnit', it.unit || '-', diff.unit);
+  setFact('selBest', it.best || '-', diff.best);
+  $('selKind').textContent = it.kind + '(' + it.row + '行目)';
+  $('selTheory').textContent = fmtNum(it.theory);
+  $('selEntered').textContent = isCounted(it) ? String(entered[it.row]) : 'まだ';
+  $('selCard').classList.toggle('confirm', confirm);
+  // ほかの似た行(押すとそちらに選び直す)
+  const box = $('similarList');
+  box.innerHTML = '';
+  if (confirm) {
+    for (const o of sims.slice().sort(suggestOrder).slice(0, 6)) {
+      const b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'sib';
+      const go = document.createElement('span'); go.className = 'go'; go.textContent = 'こちらに変える';
+      const od = fieldsDiff(o, it);   // 今選んでいる行と違うところに印
+      const nm = document.createElement('div');
+      nm.append(od.includes('name') ? nameWithMark(o, [it]) : o.name);
+      const meta = document.createElement('div');
+      const sp = document.createElement('span'); sp.textContent = o.spec || '-'; if (od.includes('spec')) sp.className = 'diff';
+      const un = document.createElement('span'); un.textContent = o.unit || '-'; if (od.includes('unit')) un.className = 'diff';
+      const be = document.createElement('span'); be.textContent = '賞味 ' + (o.best || '-'); if (od.includes('best')) be.className = 'diff';
+      meta.append(sp, ' ・ ', un, ' ・ ', be, ' ・ 理論値 ' + fmtNum(o.theory) + (isCounted(o) ? ' ・ 入力済 ' + entered[o.row] : ''));
+      b.append(go, nm, meta);
+      b.addEventListener('click', () => openQty(o));
+      box.appendChild(b);
+    }
+  }
+  $('similarBox').classList.toggle('show', confirm);
+  $('selCard').dataset.confirm = confirm ? '1' : '';
+  renderMode();
+  $('qtyInput').value = '';
+  $('qtyLive').textContent = confirm ? '(似た行があります。上の内容を確かめてから、マイクを押してください)' : '';
+  showScreen('qty');
+  // 似た行がなければ、選んだらそのまま聞き取りを始める(ボタンを押す手間を減らす)
+  if (!confirm) listen($('qtyMic'), $('qtyLive'), onQtyVoice, onQtyNothing);
+}
+
+// 訂正(置き換え)/足す の表示
+function renderMode() {
+  const it = current;
+  if (!it) return;
+  const counted = isCounted(it);
+  const show = !!qtyTarget || counted;
+  const add = qtyMode === 'add';
+  const box = $('modeBox');
+  box.classList.toggle('show', show);
+  box.classList.toggle('add', add);
+  const now = $('modeNow');
+  now.innerHTML = '';
+  const big = document.createElement('b');
+  if (qtyTarget) {
+    big.textContent = qtyTarget.qty;
+    now.append('直す記録:', big, '(' + qtyTarget.person + ' ' + String(qtyTarget.time || '').slice(5, 16) + ')');
+    $('modeText').textContent = 'この記録の数を、話した数に置き換えます(訂正)';
+    $('modeToggle').style.display = 'none';
+  } else if (counted) {
+    big.textContent = entered[it.row];
+    now.append('いま入っている数:', big);
+    $('modeText').textContent = add
+      ? 'いまの ' + entered[it.row] + ' に、話した数を足します(別の場所の分)'
+      : '話した数に置き換えます(言い直し・訂正)';
+    $('modeToggle').style.display = '';
+    $('modeToggle').textContent = add ? 'やめる(置き換えに戻す)' : '別の場所の分として足す';
+  }
+  const confirm = $('selCard').dataset.confirm === '1';
+  $('qtyMicLabel').textContent = confirm ? '合っていれば 数を話す' : add ? '足す数を話す' : show ? '正しい数を話す' : '数を話す';
+  $('qtySubmit').textContent = add ? '足す' : show ? '訂正' : '登録';
+}
+
+function leaveQty() {
+  qtyTarget = null;
+  if (afterQty === 'log') openLog(); else showScreen('search');
+}
+
+function showBanner(type, text, sub, withUndo) {
+  const el = $('banner');
+  el.className = type;
+  el.innerHTML = '';
+  el.append(text);
+  if (sub) { const s = document.createElement('span'); s.className = 'sub'; s.textContent = sub; el.appendChild(s); }
+  if (withUndo) {
+    const wrap = document.createElement('div');
+    wrap.className = 'row-btns';
+    const u = document.createElement('button');
+    u.type = 'button'; u.className = 'btn'; u.textContent = '今の記録を取り消す';
+    u.addEventListener('click', undoLast);
+    wrap.appendChild(u);
+    el.appendChild(wrap);
+  }
+}
+function clearBanner() { $('banner').className = ''; $('banner').innerHTML = ''; }
+
+/* =========================================================
+   7. 操作
+   ========================================================= */
+function onSearchVoice(cands) {
+  if (cands.some(c => isCommand(c, UNDO_WORDS))) { undoLast(); return; }
+  // 候補の中で、いちばん多く見つかった言い方を使う
+  const pool = filter === 'todo' ? items.filter(it => !(it.row in entered)) : items;
+  let best = cands[0];
+  let bestCount = -1;
+  for (const c of cands) {
+    const r = search(c, pool);
+    const score = r.list.length && !r.fuzzy ? 1000 + r.list.length : r.list.length;
+    if (score > bestCount) { bestCount = score; best = c; }
+  }
+  query = best.replace(/[。、]/g, '').trim();
+  $('searchInput').value = query;
+  renderList();
+}
+
+function onSearchNothing() {
+  showBanner('warn', '聞き取れませんでした', 'もう一度「品名を話す」を押して、品名の一部をはっきり話してください');
+}
+function onQtyNothing() {
+  showBanner('warn', '数が聞き取れませんでした', '「5」だけのような短い言葉は聞き取りにくいため、「5です」「3袋」のように後ろに言葉を付けて、もう一度「数を話す」を押してください');
+}
+
+function onQtyVoice(cands) {
+  if (cands.some(c => isCommand(c, BACK_WORDS))) { leaveQty(); return; }
+  for (const c of cands) {
+    const n = parseQuantity(c);
+    if (n !== null) { submitQty(n); return; }
+  }
+  showBanner('warn', '数が聞き取れませんでした', '「5です」「3袋」のように話すか、下の欄に数字を入れて「登録」を押してください');
+}
+
+async function submitQty(qty) {
+  if (busy || !current) return;
+  if (!(qty >= 0 && qty <= 1000000)) { showBanner('warn', '数が正しくありません'); return; }
+  busy = true;
+  const it = current;
+  const mode = qtyMode;
+  showBanner('ok', '送信中…');
+  try {
+    const r = await apiPost({
+      action: 'record', row: it.row, name: it.name, spec: it.spec, unit: it.unit, best: it.best,
+      qty: qty, person: $('person').value.trim(), mode: mode, target: qtyTarget ? qtyTarget.id : ''
+    });
+    if (!r.ok) {
+      showBanner('warn', '記録できませんでした:' + r.error);
+      if (r.reload) { if (afterQty === 'log') { qtyTarget = null; await openLog(); } else await loadRows(); }
+      return;
+    }
+    if (r.enteredTotal === null) delete entered[it.row]; else entered[it.row] = r.enteredTotal;
+    lastRecord = { id: r.id, it, qty };
+    let title;
+    if (r.replaced) title = '訂正しました:' + it.name + ' ' + r.before + ' → ' + qty;
+    else if (mode === 'add' && r.enteredTotal !== qty) title = '足しました:' + it.name + ' +' + qty + '(この行の合計 ' + r.enteredTotal + ')';
+    else title = '登録しました:' + it.name + ' → ' + qty;
+    let sub = it.spec + ' ' + it.unit + ' ・ 賞味 ' + it.best;
+    if (r.replaced && r.enteredTotal !== qty) sub += ' ・ この行の合計 ' + r.enteredTotal;
+    if (r.wasApplied) sub += ' ・ 在庫数に反映済みだった数です。事務所が次に反映するときに置き換わります';
+    const gap = typeof it.theory === 'number' && Math.abs(r.enteredTotal - it.theory) > Math.max(5, it.theory * 0.5);
+    if (gap) sub += ' ※理論値 ' + it.theory + ' と差があります。数に間違いがなければそのままで大丈夫です';
+    showBanner(gap ? 'warn' : 'ok', title, sub, true);
+    query = '';
+    $('searchInput').value = '';
+    $('searchLive').textContent = '';
+    renderList();
+    leaveQty();
+  } catch (e) {
+    showBanner('warn', '送信できませんでした(ネット接続を確認して、もう一度「' + $('qtySubmit').textContent + '」を押してください)');
+  } finally {
+    busy = false;
+  }
+}
+
+// 直前の記録を取り消す(訂正だったときは、訂正前の数に戻す)
+async function undoLast() {
+  if (!lastRecord) { showBanner('warn', '取り消す記録がありません'); return; }
+  if (busy) return;
+  busy = true;
+  const rec = lastRecord;
+  try {
+    const r = await apiPost({ action: 'cancel', id: rec.id, restore: true });
+    if (!r.ok) { showBanner('warn', '取り消せませんでした:' + r.error); return; }
+    if (r.enteredTotal === null) delete entered[rec.it.row]; else entered[rec.it.row] = r.enteredTotal;
+    lastRecord = null;
+    showBanner('ok', '取り消しました:' + rec.it.name + ' → ' + rec.qty,
+      r.restored ? '訂正前の数(' + r.restoredQty + ')に戻しました' : '');
+    renderList();
+    if ($('logScreen').style.display === 'block') openLog();
+  } catch (e) {
+    showBanner('warn', '送信できませんでした(ネット接続を確認してください)');
+  } finally {
+    busy = false;
+  }
+}
+
+/* ---------- 記録を見る・直す ---------- */
+const LIVE_STATUS = ['未反映', '反映済'];
+
+async function openLog() {
+  if (!bookKey) return;
+  showScreen('log');
+  $('logInfo').textContent = '記録を読み込んでいます…';
+  $('logList').innerHTML = '';
+  try {
+    const key = bookKey;
+    const r = await apiLog();
+    if (key !== bookKey) return;
+    if (!r.ok) throw new Error(r.error || '読み込みに失敗しました');
+    logRecords = r.records || [];
+    renderLog();
+  } catch (e) {
+    $('logInfo').textContent = '記録を読み込めませんでした:' + e.message + '(ネット接続を確認してください)';
+  }
+}
+
+function renderLog() {
+  document.querySelectorAll('.lchip').forEach(c => c.classList.toggle('on', c.dataset.who === logWho));
+  const me = $('person').value.trim() || '(未入力)';
+  const showGone = $('logShowGone').checked;
+  let list = logRecords.filter(r => showGone || LIVE_STATUS.includes(r.status));
+  if (logWho === 'me') list = list.filter(r => r.person === me);
+  $('logInfo').textContent = (logWho === 'me' ? '担当者「' + me + '」の記録 ' : '全員の記録 ') + list.length + '件' +
+    (logWho === 'me' && me === '(未入力)' ? '(上の担当者欄に名前を入れると、自分の記録だけが出ます)' : '');
+  const box = $('logList');
+  box.innerHTML = '';
+  for (const rec of list) box.appendChild(recordCard(rec));
+}
+
+function recordCard(rec) {
+  const live = LIVE_STATUS.includes(rec.status);
+  const card = document.createElement('div');
+  card.className = 'rec' + (live ? '' : ' gone');
+  const top = document.createElement('div');
+  top.className = 'top-line';
+  const left = document.createElement('div');
+  const nm = document.createElement('div');
+  nm.className = 'rname';
+  nm.textContent = rec.name;
+  const m1 = document.createElement('div');
+  m1.className = 'meta';
+  const un = document.createElement('span'); un.className = 'unit'; un.textContent = rec.unit || '-';
+  const be = document.createElement('span'); be.className = 'best'; be.textContent = '賞味 ' + (rec.best || '-');
+  m1.append((rec.spec || '') + ' ', un, ' ', be, ' ・ ' + rec.row + '行目');
+  const m2 = document.createElement('div');
+  m2.className = 'meta';
+  m2.append(String(rec.time || '').slice(5, 16) + ' ・ ' + rec.person + ' ');
+  const badge = (cls, t) => { const b = document.createElement('span'); b.className = 'badge ' + cls; b.textContent = t; m2.append(' ', b); };
+  if (rec.status === '反映済') badge('applied', '在庫数に反映済');
+  if (rec.status === '取消') badge('gone', '取り消し');
+  if (rec.status === '訂正済') badge('gone', '訂正前の数');
+  if (rec.fixed && live) badge('fixed', '訂正した数');
+  left.append(nm, m1, m2);
+  const q = document.createElement('div');
+  q.className = 'qty';
+  q.textContent = rec.qty;
+  top.append(left, q);
+  card.appendChild(top);
+  if (live) {
+    const acts = document.createElement('div');
+    acts.className = 'acts';
+    const it = items.find(i => i.row === rec.row && i.name === rec.name && i.spec === rec.spec && i.unit === rec.unit && i.best === rec.best);
+    const fix = document.createElement('button');
+    fix.type = 'button'; fix.className = 'btn'; fix.textContent = '数を直す';
+    if (it) fix.addEventListener('click', () => { clearBanner(); openQty(it, { target: rec }); });
+    else { fix.disabled = true; fix.title = '棚卸表の行が変わったため直せません(「最新にする」を押してください)'; }
+    const del = document.createElement('button');
+    del.type = 'button'; del.className = 'btn danger'; del.textContent = '取り消す';
+    let timer = null;
+    del.addEventListener('click', () => {
+      if (!del.classList.contains('sure')) {
+        // 押し間違いを防ぐため、もう一度押したときだけ取り消す
+        del.classList.add('sure'); del.textContent = 'もう一度押すと取り消します';
+        timer = setTimeout(() => { del.classList.remove('sure'); del.textContent = '取り消す'; }, 4000);
+        return;
+      }
+      clearTimeout(timer);
+      cancelRecord(rec);
+    });
+    acts.append(fix, del);
+    card.appendChild(acts);
+  }
+  return card;
+}
+
+async function cancelRecord(rec) {
+  if (busy) return;
+  busy = true;
+  try {
+    const r = await apiPost({ action: 'cancel', id: rec.id });
+    if (!r.ok) { showBanner('warn', '取り消せませんでした:' + r.error); if (r.reload) await openLog(); return; }
+    if (r.enteredTotal === null) delete entered[rec.row]; else entered[rec.row] = r.enteredTotal;
+    if (lastRecord && lastRecord.id === rec.id) lastRecord = null;
+    showBanner('ok', '取り消しました:' + rec.name + ' → ' + rec.qty,
+      (r.wasApplied ? '在庫数に反映済みだった数です。事務所が次に反映するときに直ります' : ''));
+    renderList();
+    busy = false;
+    await openLog();
+  } catch (e) {
+    showBanner('warn', '送信できませんでした(ネット接続を確認してください)');
+  } finally {
+    busy = false;
+  }
+}
+
+/* =========================================================
+   8. 準備
+   ========================================================= */
+(function init() {
+  if (DEMO) $('demoBar').style.display = 'block';
+  if (!SpeechRec) {
+    $('searchMic').disabled = true;
+    $('qtyMic').disabled = true;
+    showBanner('warn', 'このブラウザは音声入力に対応していません', 'パソコン・AndroidはGoogle Chrome、iPhone・iPadはSafariで開いてください。文字入力なら使えます。');
+  }
+  $('searchMic').addEventListener('click', () => { clearBanner(); listen($('searchMic'), $('searchLive'), onSearchVoice, onSearchNothing); });
+  $('qtyMic').addEventListener('click', () => listen($('qtyMic'), $('qtyLive'), onQtyVoice, onQtyNothing));
+  $('searchInput').addEventListener('input', () => { query = $('searchInput').value; renderList(); });
+  $('clearSearch').addEventListener('click', () => { query = ''; $('searchInput').value = ''; $('searchLive').textContent = ''; renderList(); });
+  document.querySelectorAll('.chip[data-filter]').forEach(c => c.addEventListener('click', () => { filter = c.dataset.filter; renderList(); }));
+  $('qtySubmit').addEventListener('click', () => {
+    const n = parseQuantity($('qtyInput').value);
+    if (n === null) { showBanner('warn', '数を入れてください'); return; }
+    submitQty(n);
+  });
+  $('qtyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('qtySubmit').click(); });
+  $('backBtn').addEventListener('click', leaveQty);
+  $('modeToggle').addEventListener('click', () => { qtyMode = qtyMode === 'add' ? 'replace' : 'add'; renderMode(); });
+  $('logBtn').addEventListener('click', () => { stopListening(); openLog(); });
+  $('logBack').addEventListener('click', () => showScreen('search'));
+  document.querySelectorAll('.lchip').forEach(c => c.addEventListener('click', () => { logWho = c.dataset.who; renderLog(); }));
+  $('logShowGone').addEventListener('change', renderLog);
+  $('reloadBtn').addEventListener('click', loadRows);
+  // パソコンではスペースキーでもマイクを押せる(文字入力中は除く)
+  document.addEventListener('keydown', e => {
+    if (e.code !== 'Space' || /^(INPUT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)) return;
+    e.preventDefault();
+    if ($('qtyScreen').style.display === 'block') $('qtyMic').click();
+    else if ($('searchScreen').style.display === 'block') $('searchMic').click();
+  });
+  loadBooks();
+})();
+</script>
+</body>
+</html>
