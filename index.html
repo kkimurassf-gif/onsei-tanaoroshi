@@ -2,205 +2,262 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <meta name="robots" content="noindex, nofollow">
 <meta name="theme-color" content="#1565c0">
-<title>音声棚卸(在庫帳連携)v0.6</title>
+<title>音声棚卸(在庫帳連携)v0.7</title>
 <style>
   /* ===== 見た目の設定 ===== */
   :root {
     --bg: #f4f6f8; --card: #fff; --text: #1f2933; --sub: #52606d; --line: #d9e2ec;
-    --blue: #1565c0; --red: #c62828; --green: #2e7d32; --orange: #b45309; --yellow: #fff8e1;
+    --blue: #1565c0; --blue-d: #0d47a1; --red: #c62828; --green: #2e7d32; --orange: #b45309; --yellow: #fff8e1;
   }
   * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
   body {
     margin: 0; background: var(--bg); color: var(--text);
     font-family: "Hiragino Kaku Gothic ProN", "Hiragino Sans", Meiryo, "Noto Sans JP", sans-serif;
     font-size: 18px; line-height: 1.5;
   }
-  header { background: var(--blue); color: #fff; padding: 10px 16px; }
-  header h1 { margin: 0; font-size: 20px; }
-  #fileInfo { font-size: 14px; opacity: .9; }
-  .demo { background: #fde68a; color: #78350f; padding: 6px 16px; font-size: 14px; font-weight: bold; }
-  main { max-width: 760px; margin: 0 auto; padding: 12px 16px 40px; }
-  .card { background: var(--card); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-bottom: 12px; }
-  .top { display: flex; gap: 10px; align-items: end; flex-wrap: wrap; }
-  .top label { font-size: 14px; color: var(--sub); display: block; }
-  .top input { font-size: 18px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; width: 11em; }
-  button { font-family: inherit; }
-  .btn { font-size: 17px; padding: 9px 14px; border-radius: 8px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
-  .btn.primary { background: var(--green); color: #fff; border: none; font-weight: bold; }
+  body.big { font-size: 21px; }
+  button { font-family: inherit; font-size: inherit; }
+  [hidden] { display: none !important; }
+  body.on-qty #books, body.on-qty .who { display: none !important; }   /* 数の画面では選んだ行に集中できるように */
 
-  /* 棚卸表(製品・原料・資材)の切り替え */
-  .books { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 12px; }
+  /* ヘッダー */
+  header { background: var(--blue); color: #fff; padding: 8px 16px; position: sticky; top: 0; z-index: 20; }
+  .hrow { display: flex; align-items: center; justify-content: space-between; gap: 8px; }
+  header h1 { margin: 0; font-size: 1.1em; line-height: 1.3; }
+  #bookName { font-size: .95em; }
+  .hbtn { background: rgba(255,255,255,.16); color: #fff; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; padding: 6px 12px; font-size: 15px; cursor: pointer; white-space: nowrap; }
+  #fileInfo { font-size: 13px; opacity: .85; }
+  .demo { background: #fde68a; color: #78350f; padding: 6px 16px; font-size: 14px; font-weight: bold; }
+
+  main { max-width: 760px; margin: 0 auto; padding: 12px 16px 130px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 14px; padding: 14px; margin-bottom: 12px; }
+  .btn { font-size: .94em; min-height: 48px; padding: 8px 14px; border-radius: 10px; border: 1px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
+  .btn:active { background: #e3f2fd; }
+  .btn.primary { background: var(--green); color: #fff; border: none; font-weight: bold; }
+  .btn.primary:active { background: #1b5e20; }
+
+  /* 棚卸表の切り替え */
+  .books { display: flex; gap: 8px; flex-wrap: wrap; padding: 10px; }
   .books .label { width: 100%; font-size: 14px; color: var(--sub); }
-  .bookbtn {
-    flex: 1 1 8em; font-size: 18px; font-weight: bold; padding: 12px 10px; border-radius: 10px;
-    border: 2px solid var(--line); background: #fff; color: var(--text); cursor: pointer;
-  }
+  .bookbtn { flex: 1 1 7em; font-weight: bold; min-height: 52px; padding: 8px; border-radius: 10px; border: 2px solid var(--line); background: #fff; color: var(--text); cursor: pointer; }
   .bookbtn.on { background: var(--blue); color: #fff; border-color: var(--blue); }
   .bookbtn:disabled { opacity: .6; cursor: wait; }
-  #bookName { font-size: 17px; font-weight: bold; }
+
+  /* 担当者・ボタン */
+  .who { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; padding: 10px; }
+  .who label { font-size: 15px; color: var(--sub); white-space: nowrap; }
+  .who input { flex: 1 1 7em; min-width: 6em; font-size: 1em; min-height: 48px; padding: 6px 10px; border: 2px solid var(--line); border-radius: 10px; }
+  .who input.need { border-color: #fb8c00; background: #fff8e1; }
+  .who .btn { flex: 0 0 auto; }
 
   /* お知らせ(登録しました など) */
-  #banner { display: none; border-radius: 12px; padding: 12px 14px; margin-bottom: 12px; font-size: 19px; font-weight: bold; }
+  #banner { display: none; border-radius: 14px; padding: 12px 14px; margin-bottom: 12px; font-size: 1.08em; font-weight: bold; }
   #banner.ok { display: block; background: #e8f5e9; color: var(--green); border: 2px solid #a5d6a7; }
   #banner.warn { display: block; background: #fff3e0; color: var(--orange); border: 2px solid #ffcc80; }
-  #banner .sub { display: block; font-size: 15px; font-weight: normal; color: var(--text); margin-top: 2px; }
+  #banner .sub { display: block; font-size: .84em; font-weight: normal; color: var(--text); margin-top: 2px; }
   #banner .row-btns { margin-top: 8px; display: flex; gap: 8px; flex-wrap: wrap; }
-  #banner .btn { font-size: 16px; padding: 6px 12px; }
+  #banner .btn { font-size: .88em; }
+  #status { text-align: center; color: var(--sub); padding: 20px 0; }
 
-  /* マイクボタン */
-  .mic-area { text-align: center; }
-  .mic {
-    width: 130px; height: 130px; border-radius: 50%; border: none; background: var(--blue); color: #fff;
-    font-size: 17px; font-weight: bold; cursor: pointer;
-    display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
-    box-shadow: 0 4px 12px rgba(0,0,0,.2); -webkit-tap-highlight-color: transparent;
-  }
-  .mic svg { width: 48px; height: 48px; fill: currentColor; }
-  .mic.listening { background: var(--red); animation: pulse 1.2s infinite; }
-  .mic:disabled { background: #9aa5b1; box-shadow: none; cursor: not-allowed; }
-  @keyframes pulse {
-    0% { box-shadow: 0 0 0 0 rgba(198,40,40,.5); } 70% { box-shadow: 0 0 0 22px rgba(198,40,40,0); } 100% { box-shadow: 0 0 0 0 rgba(198,40,40,0); }
-  }
-  .hint { font-size: 15px; color: var(--sub); margin: 8px 0; }
-  .howto {
-    background: #e3f2fd; border: 2px solid #90caf9; border-radius: 10px;
-    padding: 10px 12px; margin: 0 0 12px; text-align: center;
-  }
-  .howto .big { font-size: 20px; font-weight: bold; color: #0d47a1; }
-  .howto .ex { font-size: 24px; font-weight: bold; color: #0d47a1; }
-  .howto .ex span { white-space: nowrap; display: inline-block; margin: 0 4px; }
-  .howto .note { font-size: 14px; color: var(--text); margin-top: 4px; }
-  .live { min-height: 1.9em; font-size: 21px; padding: 4px 10px; border-radius: 8px; background: #f0f4f8; color: var(--sub); }
+  /* 進み具合 */
+  .progress { padding: 12px 14px; }
+  .ptext { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; font-size: .9em; color: var(--sub); }
+  .ptext b { font-size: 1.5em; color: var(--text); }
+  .bar { height: 14px; background: #e4e7eb; border-radius: 7px; overflow: hidden; margin-top: 6px; }
+  .bar i { display: block; height: 100%; width: 0; background: var(--green); border-radius: 7px; transition: width .4s; }
+  .progress.all-done { background: #e8f5e9; border-color: #a5d6a7; }
 
-  /* 探す画面 */
+  /* 手順の案内 */
+  .steps { display: flex; gap: 6px; margin-bottom: 10px; }
+  .steps span { flex: 1; text-align: center; font-size: 14px; font-weight: bold; padding: 6px 2px; border-radius: 8px; background: #eef2f6; color: var(--sub); }
+  .steps span.now { background: var(--blue); color: #fff; }
+  .live { min-height: 2em; font-size: 1.2em; font-weight: bold; padding: 6px 10px; border-radius: 10px; background: #f0f4f8; color: var(--text); }
+  .live:empty::before { content: attr(data-idle); color: var(--sub); font-weight: normal; font-size: .8em; }
+  .hint { font-size: 15px; color: var(--sub); margin: 8px 0 0; }
+  .pending { margin-top: 8px; padding: 8px 10px; border-radius: 10px; background: #e8f5e9; border: 2px solid #a5d6a7; color: var(--green); font-weight: bold; font-size: .95em; }
+
+  /* 探す */
   .search-row { display: flex; gap: 8px; margin-top: 10px; }
-  .search-row input { flex: 1; min-width: 0; font-size: 18px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; }
+  .search-row input { flex: 1; min-width: 0; font-size: 1em; min-height: 48px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 10px; }
   .chips { display: flex; gap: 8px; margin: 10px 0 6px; flex-wrap: wrap; }
-  .chip { font-size: 16px; padding: 7px 14px; border-radius: 999px; border: 1px solid var(--line); background: #fff; cursor: pointer; }
+  .chip { font-size: .9em; min-height: 44px; padding: 6px 16px; border-radius: 999px; border: 1px solid var(--line); background: #fff; cursor: pointer; color: var(--text); }
   .chip.on { background: var(--blue); color: #fff; border-color: var(--blue); }
   #resultInfo { font-size: 15px; color: var(--sub); margin: 4px 2px 8px; }
   .item {
-    display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px;
-    padding: 10px 12px; margin-bottom: 8px; cursor: pointer; font-size: 16px; color: var(--text);
+    display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 12px;
+    padding: 12px; margin-bottom: 8px; cursor: pointer; font-size: .9em; color: var(--text); position: relative;
   }
   .item:active { background: #e3f2fd; }
   .item.done { background: #f1f8f1; border-color: #c8e6c9; }
-  .item .name { font-size: 19px; font-weight: bold; display: flex; justify-content: space-between; gap: 8px; }
-  .item .meta { color: var(--sub); font-size: 15px; }
+  .item .name { font-size: 1.15em; font-weight: bold; display: flex; justify-content: space-between; gap: 8px; }
+  .item .meta { color: var(--sub); font-size: .92em; }
   .item .best { color: var(--text); font-weight: bold; }
   .badge { font-size: 14px; padding: 2px 8px; border-radius: 6px; white-space: nowrap; align-self: flex-start; }
   .badge.done { background: var(--green); color: #fff; }
   .unit { display: inline-block; font-weight: bold; color: #fff; background: #607d8b; border-radius: 5px; padding: 0 6px; }
 
-  /* 似た行のまとまり(規格・賞味・品名の違いを目立たせる) */
-  .group { border: 2px solid #ffcc80; background: #fffaf2; border-radius: 12px; padding: 8px 8px 0; margin-bottom: 10px; }
+  /* 似た行のまとまり */
+  .group { border: 2px solid #ffcc80; background: #fffaf2; border-radius: 14px; padding: 8px 8px 0; margin-bottom: 10px; }
   .group-head { font-size: 15px; color: var(--orange); font-weight: bold; margin: 0 4px 6px; }
-  .group .item { margin-bottom: 8px; }
   .diff { background: #ffe0b2; color: #7c2d12; font-weight: bold; border-radius: 4px; padding: 0 4px; outline: 2px solid #fb8c00; outline-offset: -1px; }
   mark.diff { background: #ffe0b2; }
   .unit.diff { background: #e65100; color: #fff; outline: none; }
   .item.zero { opacity: .62; }
   .tag-zero { font-size: 13px; color: var(--sub); border: 1px solid var(--line); border-radius: 6px; padding: 0 6px; white-space: nowrap; }
 
+  /* さっきの記録 */
+  #recentBox h3 { margin: 0 0 6px; font-size: 15px; color: var(--sub); }
+  .recent { display: flex; align-items: center; gap: 10px; padding: 8px 0; border-top: 1px solid var(--line); }
+  .recent:first-of-type { border-top: none; }
+  .recent .rn { flex: 1; min-width: 0; }
+  .recent .rn b { display: block; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .recent .rn small { color: var(--sub); font-size: 14px; }
+  .recent .rq { font-size: 1.5em; font-weight: bold; white-space: nowrap; }
+  .recent .btn { min-height: 44px; font-size: .85em; }
+
   /* 数を話す画面 */
   #qtyScreen { display: none; }
   .selected { background: var(--yellow); border: 2px solid #ffe082; }
-  .selected .name { font-size: 22px; font-weight: bold; }
-  .selected .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 6px; font-size: 17px; }
+  .selected .name { font-size: 1.25em; font-weight: bold; line-height: 1.35; }
+  .selected .facts { display: grid; grid-template-columns: auto 1fr; gap: 2px 12px; margin-top: 6px; font-size: .95em; }
   .selected .facts dt { color: var(--sub); }
   .selected .facts dd { margin: 0; font-weight: bold; }
-  .big-best { font-size: 22px; }
-  .manual { display: flex; gap: 8px; justify-content: center; margin-top: 12px; }
-  .manual input { width: 7em; font-size: 22px; padding: 8px; border: 1px solid var(--line); border-radius: 8px; text-align: right; }
-  .back { margin-top: 12px; width: 100%; }
-  /* 似た行があるときの念押し */
-  #confirmHead { display: none; font-size: 17px; font-weight: bold; color: var(--orange); margin-bottom: 4px; }
+  .big-best { font-size: 1.2em; }
+  #confirmHead { display: none; font-size: .95em; font-weight: bold; color: var(--orange); margin-bottom: 4px; }
   .selected.confirm { border-color: #fb8c00; }
   .selected.confirm #confirmHead { display: block; }
   #similarBox { display: none; }
   #similarBox.show { display: block; }
-  #similarBox h3 { margin: 0 0 6px; font-size: 16px; color: var(--sub); }
-  .sib { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; margin-bottom: 6px; font-size: 15px; cursor: pointer; color: var(--text); }
+  #similarBox h3 { margin: 0 0 6px; font-size: 15px; color: var(--sub); }
+  .sib { display: block; width: 100%; text-align: left; background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px; margin-bottom: 6px; font-size: .85em; cursor: pointer; color: var(--text); }
   .sib .go { float: right; color: var(--blue); font-weight: bold; }
-
-  /* 訂正・足す */
   #modeBox { display: none; border: 2px solid #90caf9; background: #e3f2fd; }
   #modeBox.show { display: block; }
   #modeBox.add { border-color: #a5d6a7; background: #e8f5e9; }
-  #modeNow { font-size: 18px; }
-  #modeNow b { font-size: 24px; }
-  #modeText { font-size: 19px; font-weight: bold; color: #0d47a1; margin: 2px 0 8px; }
+  #modeNow b { font-size: 1.35em; }
+  #modeText { font-weight: bold; color: var(--blue-d); margin: 2px 0 8px; }
   #modeBox.add #modeText { color: var(--green); }
-  #modeToggle { font-size: 16px; }
+
+  .howto { background: #e3f2fd; border: 2px solid #90caf9; border-radius: 12px; padding: 8px 10px; margin-bottom: 10px; text-align: center; }
+  .howto .big { font-size: 1em; font-weight: bold; color: var(--blue-d); }
+  .howto .ex { font-size: 1.25em; font-weight: bold; color: var(--blue-d); }
+  .howto .ex span { white-space: nowrap; display: inline-block; margin: 0 4px; }
+  .howto .note { font-size: 14px; margin-top: 2px; }
+  .pendingbtn { width: 100%; min-height: 64px; margin-bottom: 10px; font-size: 1.2em; }
+
+  /* 数の入力欄と数字ボタン */
+  .manual { display: flex; gap: 8px; margin-top: 10px; }
+  .manual input { flex: 1; min-width: 0; font-size: 1.6em; font-weight: bold; min-height: 60px; padding: 4px 12px; border: 2px solid var(--line); border-radius: 12px; text-align: right; }
+  .manual .btn { min-width: 6em; font-size: 1.1em; }
+  .pad { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-top: 10px; }
+  .pad button { min-height: 56px; font-size: 1.3em; font-weight: bold; border-radius: 12px; border: 1px solid var(--line); background: #f8fafc; color: var(--text); cursor: pointer; }
+  .pad button:active { background: #dbeafe; }
+  .pad .wide { grid-column: span 2; font-size: 1em; }
+  .pad .fn { font-size: .9em; background: #eef2f6; }
+  .back { margin-top: 12px; width: 100%; }
 
   /* 記録を見る・直す */
   #logScreen { display: none; }
   .log-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; flex-wrap: wrap; }
-  .log-head h2 { margin: 0; font-size: 19px; }
-  .rec { background: #fff; border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; margin-bottom: 8px; }
+  .log-head h2 { margin: 0; font-size: 1.05em; }
+  .rec { background: #fff; border: 1px solid var(--line); border-radius: 12px; padding: 10px 12px; margin-bottom: 8px; }
   .rec.gone { background: #f5f5f5; color: var(--sub); }
   .rec .top-line { display: flex; justify-content: space-between; gap: 8px; align-items: flex-start; }
-  .rec .rname { font-size: 18px; font-weight: bold; }
-  .rec .qty { font-size: 26px; font-weight: bold; white-space: nowrap; }
-  .rec.gone .qty { text-decoration: line-through; font-size: 20px; }
-  .rec .meta { color: var(--sub); font-size: 15px; }
+  .rec .rname { font-weight: bold; }
+  .rec .qty { font-size: 1.45em; font-weight: bold; white-space: nowrap; }
+  .rec.gone .qty { text-decoration: line-through; font-size: 1.1em; }
+  .rec .meta { color: var(--sub); font-size: .84em; }
   .rec .acts { display: flex; gap: 8px; margin-top: 8px; flex-wrap: wrap; }
-  .rec .acts .btn { font-size: 16px; padding: 7px 12px; }
   .btn.danger { color: var(--red); border-color: #ef9a9a; }
   .btn.danger.sure { background: var(--red); color: #fff; border-color: var(--red); font-weight: bold; }
   .badge.applied { background: #1565c0; color: #fff; }
   .badge.gone { background: #9aa5b1; color: #fff; }
   .badge.fixed { background: #fb8c00; color: #fff; }
-  .opt { font-size: 15px; color: var(--sub); display: inline-flex; align-items: center; gap: 4px; }
+  .opt { font-size: 15px; color: var(--sub); display: inline-flex; align-items: center; gap: 6px; min-height: 40px; }
 
-  #status { text-align: center; color: var(--sub); padding: 20px 0; }
+  /* 下に固定のマイクボタン(親指で押しやすい位置) */
+  .dock {
+    position: fixed; left: 0; right: 0; bottom: 0; z-index: 30;
+    background: rgba(244,246,248,.97); border-top: 1px solid var(--line);
+    padding: 10px 16px calc(10px + env(safe-area-inset-bottom)); display: flex; justify-content: center;
+  }
+  .mic {
+    width: 100%; max-width: 560px; height: 80px; border-radius: 40px; border: none; background: var(--blue); color: #fff;
+    font-size: 1.25em; font-weight: bold; cursor: pointer; display: none; align-items: center; justify-content: center; gap: 10px;
+    box-shadow: 0 4px 14px rgba(21,101,192,.35); -webkit-tap-highlight-color: transparent; touch-action: manipulation;
+  }
+  .mic.show { display: flex; }
+  .mic svg { width: 36px; height: 36px; fill: currentColor; flex: none; }
+  .mic.listening { background: var(--red); animation: pulse 1.2s infinite; }
+  .mic:disabled { background: #9aa5b1; box-shadow: none; cursor: not-allowed; }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(198,40,40,.55); } 70% { box-shadow: 0 0 0 18px rgba(198,40,40,0); } 100% { box-shadow: 0 0 0 0 rgba(198,40,40,0); }
+  }
+
+  /* 設定 */
+  .sheet-bg { position: fixed; inset: 0; background: rgba(0,0,0,.4); z-index: 40; display: flex; align-items: flex-end; justify-content: center; }
+  .sheet { background: #fff; width: 100%; max-width: 560px; border-radius: 18px 18px 0 0; padding: 16px 16px calc(16px + env(safe-area-inset-bottom)); max-height: 90vh; overflow: auto; }
+  .sheet h2 { margin: 0 0 8px; font-size: 1.1em; }
+  .sw { display: flex; align-items: center; gap: 12px; padding: 12px 0; border-top: 1px solid var(--line); cursor: pointer; }
+  .sw input { width: 26px; height: 26px; flex: none; accent-color: var(--blue); }
+  .sw span { flex: 1; }
+  .sw small { display: block; color: var(--sub); font-size: 14px; }
+  .sheet .btn { width: 100%; margin-top: 10px; }
+
   @media (max-width: 520px) {
-    .howto .big { font-size: 18px; }
-    .howto .ex { font-size: 21px; }
-    .selected .facts { font-size: 16px; }
-    .top input { width: 100%; }
-    .top > div { flex: 1 1 100%; }
-    .top > .btn { flex: 1 1 auto; }
+    .who label { width: 100%; }
+    .steps span { font-size: 13px; }
   }
 </style>
 </head>
 <body>
 
 <header>
-  <h1>音声で棚卸 <span id="bookName"></span></h1>
+  <div class="hrow">
+    <h1>音声で棚卸 <span id="bookName"></span></h1>
+    <button id="settingsBtn" class="hbtn" type="button">設定</button>
+  </div>
   <div id="fileInfo">在庫帳を読み込んでいます…</div>
 </header>
 <div id="demoBar" class="demo" style="display:none">デモモード:在庫帳にはつながっていません(見本のデータで動きます)</div>
 
 <main>
   <section class="card books" id="books" style="display:none">
-    <div class="label">どの棚卸表を数えますか(押すと切り替わります)</div>
+    <div class="label">どの棚卸表を数えますか</div>
   </section>
-  <section class="card top">
-    <div><label for="person">担当者</label><input id="person" type="text" placeholder="例:山田"></div>
+  <section class="card who">
+    <label for="person">担当者</label>
+    <input id="person" type="text" placeholder="名前を入れてください" autocomplete="name">
     <button id="reloadBtn" class="btn" type="button">最新にする</button>
     <button id="logBtn" class="btn" type="button">記録を見る・直す</button>
   </section>
 
-  <div id="banner"></div>
+  <div id="banner" role="status" aria-live="polite"></div>
   <div id="status"></div>
 
   <!-- ① 探す画面 -->
   <section id="searchScreen" style="display:none">
-    <div class="card mic-area">
-      <button id="searchMic" class="mic" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
-        <span>品名を話す</span>
-      </button>
-      <p class="hint">品名の一部を話してください(例:「バターチキン」「シチュー」)</p>
-      <div id="searchLive" class="live"></div>
+    <div class="card progress" id="progressCard">
+      <div class="ptext"><span><b id="progDone">0</b> / <span id="progAll">0</span> 行 数えました</span><span id="progPct"></span></div>
+      <div class="bar"><i id="progBar"></i></div>
+    </div>
+    <div class="card">
+      <div class="steps"><span class="now">① 品名を話す</span><span>② 行を選ぶ</span><span>③ 数を話す</span></div>
+      <div id="searchLive" class="live" data-idle="下の青いボタンを押して、品名の一部を話してください"></div>
+      <div id="pendingNote" class="pending" hidden></div>
       <div class="search-row">
-        <input id="searchInput" type="search" placeholder="文字で探す">
+        <input id="searchInput" type="search" placeholder="文字で探す" enterkeyhint="search">
         <button id="clearSearch" class="btn" type="button">全部表示</button>
       </div>
+      <p class="hint">例:「バターチキン」「シチュー」。品名と数をまとめて「シチュー 5です」と話してもOK</p>
+    </div>
+    <div class="card" id="recentBox" hidden>
+      <h3>さっき入れた数(間違えたら「直す」)</h3>
+      <div id="recentList"></div>
     </div>
     <div class="chips">
       <button class="chip on" data-filter="todo" type="button">まだ数えていない <span id="todoCount">0</span></button>
@@ -233,20 +290,23 @@
       <div id="modeText"></div>
       <button id="modeToggle" class="btn" type="button">別の場所の分として足す</button>
     </div>
-    <div class="card mic-area">
+    <div class="card">
       <div class="howto">
         <div class="big">数は「です」や単位を付けて話す</div>
         <div class="ex" id="howtoEx"><span>「5です」</span><span>「3袋」</span><span>「2ケース」</span></div>
-        <div class="note">「5」だけだと聞き取れないことがあります。<br>ないときは「なし」、半分は「0.5です」</div>
+        <div class="note">ないときは「なし」、半分は「0.5です」。下の数字ボタンでも入れられます</div>
       </div>
-      <button id="qtyMic" class="mic" type="button">
-        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
-        <span id="qtyMicLabel">数を話す</span>
-      </button>
-      <div id="qtyLive" class="live" data-prompt="(「5です」のように話してください)"></div>
+      <button id="pendingBtn" class="btn primary pendingbtn" type="button" hidden></button>
+      <div id="qtyLive" class="live" data-idle="下の青いボタンを押して、数を話してください" data-prompt="(「5です」のように話してください)"></div>
       <div class="manual">
-        <input id="qtyInput" type="text" inputmode="decimal" placeholder="数">
+        <input id="qtyInput" type="text" inputmode="none" placeholder="数" aria-label="数">
         <button id="qtySubmit" class="btn primary" type="button">登録</button>
+      </div>
+      <div class="pad" id="pad">
+        <button type="button" data-k="7">7</button><button type="button" data-k="8">8</button><button type="button" data-k="9">9</button><button type="button" data-k="del" class="fn">1字消す</button>
+        <button type="button" data-k="4">4</button><button type="button" data-k="5">5</button><button type="button" data-k="6">6</button><button type="button" data-k="clr" class="fn">クリア</button>
+        <button type="button" data-k="1">1</button><button type="button" data-k="2">2</button><button type="button" data-k="3">3</button><button type="button" data-k=".">.</button>
+        <button type="button" data-k="0">0</button><button type="button" data-k="half" class="fn">0.5</button><button type="button" data-k="none" class="wide fn">なし(0)</button>
       </div>
       <button id="backBtn" class="btn back" type="button">戻る(選び直す)</button>
     </div>
@@ -270,6 +330,31 @@
     <div id="logList"></div>
   </section>
 </main>
+
+<!-- 下に固定のマイクボタン -->
+<div class="dock" id="dock">
+  <button id="searchMic" class="mic" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    <span>品名を話す</span>
+  </button>
+  <button id="qtyMic" class="mic" type="button">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 14a3 3 0 0 0 3-3V5a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-3.08A7 7 0 0 0 19 11h-2z"/></svg>
+    <span id="qtyMicLabel">数を話す</span>
+  </button>
+</div>
+
+<!-- 設定 -->
+<div class="sheet-bg" id="settings" hidden>
+  <div class="sheet" role="dialog" aria-labelledby="setTitle">
+    <h2 id="setTitle">設定(この端末だけに残ります)</h2>
+    <label class="sw"><input type="checkbox" data-pref="speak"><span>声で確認する<small>登録した数を読み上げます。画面を見なくても確かめられます</small></span></label>
+    <label class="sw"><input type="checkbox" data-pref="beep"><span>音とふるえで知らせる<small>登録できたら「ピピッ」、聞き取れないと「ブー」</small></span></label>
+    <label class="sw"><input type="checkbox" data-pref="cont"><span>続けて話す<small>登録したら、次の品名を自動で聞き始めます(ボタンを押す回数が減ります)</small></span></label>
+    <label class="sw"><input type="checkbox" data-pref="wake"><span>画面を消さない<small>数えている間、画面が暗くならないようにします</small></span></label>
+    <label class="sw"><input type="checkbox" data-pref="big"><span>文字を大きくする</span></label>
+    <button id="settingsClose" class="btn primary" type="button">閉じる</button>
+  </div>
+</div>
 
 <script>
 /* =========================================================
@@ -735,6 +820,7 @@ let recognition = null;
 function listen(micBtn, liveEl, onFinal, onNothing) {
   if (!SpeechRec) return;
   if (recognition) { recognition.stop(); return; }   // 話し中にもう一度押すと止める
+  try { if (window.speechSynthesis) speechSynthesis.cancel(); } catch (e) { /* 何もしない */ }   // 読み上げ中ならやめる(読み上げの声を拾わないため)
   const rec = new SpeechRec();
   rec.lang = 'ja-JP';
   rec.interimResults = true;
@@ -794,35 +880,155 @@ function stopListening() {
   r.abort();
 }
 
+
+/* =========================================================
+   5b. 知らせ方(音・ふるえ・読み上げ・画面を消さない)と設定
+   ========================================================= */
+const PREF_KEY = 'onsei-tanaoroshi-prefs';
+const PREF_DEFAULT = { speak: true, beep: true, cont: false, wake: true, big: false };
+let prefs = (() => {
+  try { return Object.assign({}, PREF_DEFAULT, JSON.parse(localStorage.getItem(PREF_KEY) || '{}')); }
+  catch (e) { return Object.assign({}, PREF_DEFAULT); }
+})();
+function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch (e) { /* 何もしない */ } }
+
+let audioCtx = null;
+function tones(freqs) {
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    if (audioCtx.state === 'suspended') audioCtx.resume();
+    const t0 = audioCtx.currentTime;
+    freqs.forEach((f, i) => {
+      const o = audioCtx.createOscillator(), g = audioCtx.createGain();
+      const t = t0 + i * 0.14;
+      o.type = 'sine'; o.frequency.value = f;
+      g.gain.setValueAtTime(0.0001, t);
+      g.gain.exponentialRampToValueAtTime(0.3, t + 0.01);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.12);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.13);
+    });
+  } catch (e) { /* 音が出せない端末は何もしない */ }
+}
+// kind: 'ok' = できた / 'warn' = 聞き取れない・確かめてほしい
+function feedback(kind) {
+  if (!prefs.beep) return;
+  tones(kind === 'ok' ? [880, 1320] : [330, 247]);
+  try { if (navigator.vibrate) navigator.vibrate(kind === 'ok' ? 60 : [180, 80, 180]); } catch (e) { /* 何もしない */ }
+}
+// 読み上げ(終わったら then を呼ぶ。読み上げがオフでも then は呼ぶ)
+function say(text, then) {
+  const next = () => { if (then) then(); };
+  if (!prefs.speak || !window.speechSynthesis || !window.SpeechSynthesisUtterance) { setTimeout(next, 500); return; }
+  let done = false;
+  const fin = () => { if (done) return; done = true; setTimeout(next, 300); };
+  try {
+    const u = new SpeechSynthesisUtterance(text);
+    u.lang = 'ja-JP'; u.rate = 1.1;
+    u.onend = fin; u.onerror = fin;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+    setTimeout(fin, 5000);   // 読み上げが終わった知らせが来ない端末のため
+  } catch (e) { fin(); }
+}
+// 読み上げ用に数を言いやすくする(0.5 → 0.5、12.0 → 12)
+function sayNum(n) { return String(n); }
+
+let wakeLock = null;
+async function keepAwake() {
+  if (!prefs.wake) { if (wakeLock) { try { await wakeLock.release(); } catch (e) { /* 何もしない */ } wakeLock = null; } return; }
+  if (!('wakeLock' in navigator) || document.visibilityState !== 'visible' || wakeLock) return;
+  try {
+    wakeLock = await navigator.wakeLock.request('screen');
+    wakeLock.addEventListener('release', () => { wakeLock = null; });
+  } catch (e) { wakeLock = null; }
+}
+
+function applyPrefs() {
+  document.body.classList.toggle('big', !!prefs.big);
+  document.querySelectorAll('[data-pref]').forEach(cb => { cb.checked = !!prefs[cb.dataset.pref]; });
+  keepAwake();
+}
+
+// 担当者名をこの端末に覚える
+const PERSON_KEY = 'onsei-tanaoroshi-person';
+function loadPerson() { try { return localStorage.getItem(PERSON_KEY) || ''; } catch (e) { return ''; } }
+function savePerson(v) { try { localStorage.setItem(PERSON_KEY, v); } catch (e) { /* 何もしない */ } }
+
+/* =========================================================
+   5c. 品名と数をまとめて話したとき(「シチュー 5です」)
+   ========================================================= */
+let pendingQty = null;   // 品名と一緒に聞き取った数(行を選ぶと、ボタン1つで登録できる)
+const COUNTERS = '(個|こ|袋|ケース|本|枚|箱|缶|キロ|kg|リットル|パック|甲|ロール|つ|P)';
+function splitQty(raw) {
+  const t = String(raw || '').normalize('NFKC').replace(/[。、]/g, '').trim();
+  let m = t.match(/^(.+?)\s*(なし|無し|ありません|在庫なし)(です)?$/);
+  if (m && norm(m[1]).length >= 2) return { name: m[1].trim(), qty: 0 };
+  m = t.match(new RegExp('^(.+?)\\s*([0-9]+(?:\\.[0-9]+)?|[〇一二三四五六七八九十百千万]+)\\s*' + COUNTERS + '?(半)?(です)?$'));
+  if (!m || (!m[3] && !m[5])) return null;              // 「です」か単位が付いているときだけ数とみなす(品名の中の数字と区別するため)
+  if (norm(m[1]).length < 2) return null;
+  let n = toNumber(m[2]);
+  if (isNaN(n)) return null;
+  if (m[4]) n += 0.5;
+  return { name: m[1].trim(), qty: n };
+}
+
 /* =========================================================
    6. 画面の表示
    ========================================================= */
 const $ = id => document.getElementById(id);
+let screen = 'none';
 
 function showStatus(text) { $('status').textContent = text; $('status').style.display = text ? 'block' : 'none'; }
 
 function showScreen(name) {
   stopListening();
+  screen = name;
+  document.body.classList.toggle('on-qty', name === 'qty');
   $('searchScreen').style.display = name === 'search' ? 'block' : 'none';
   $('qtyScreen').style.display = name === 'qty' ? 'block' : 'none';
   $('logScreen').style.display = name === 'log' ? 'block' : 'none';
+  $('searchMic').classList.toggle('show', name === 'search');
+  $('qtyMic').classList.toggle('show', name === 'qty');
+  $('dock').hidden = !(name === 'search' || name === 'qty');
   window.scrollTo(0, 0);
 }
 
 function fmtNum(n) { return n === null || n === undefined ? '-' : String(n); }
 
+function renderProgress() {
+  const done = items.filter(isCounted).length;
+  const all = items.length;
+  const pct = all ? Math.floor(done / all * 100) : 0;
+  $('progDone').textContent = done;
+  $('progAll').textContent = all;
+  $('progPct').textContent = all && done === all ? '全部数え終わりました' : 'のこり ' + (all - done) + ' 行';
+  $('progBar').style.width = pct + '%';
+  $('progressCard').classList.toggle('all-done', all > 0 && done === all);
+}
+
+function renderPending() {
+  const el = $('pendingNote');
+  if (pendingQty === null) { el.hidden = true; return; }
+  el.hidden = false;
+  el.textContent = '数「' + pendingQty + '」も聞き取りました。行を選ぶと、そのまま登録できます';
+}
+
 function renderList() {
-  const counted = isCounted;
-  const todo = items.filter(it => !counted(it));
+  const todo = items.filter(it => !isCounted(it));
   $('todoCount').textContent = todo.length + '件';
   $('allCount').textContent = items.length + '件';
   document.querySelectorAll('.chip[data-filter]').forEach(c => c.classList.toggle('on', c.dataset.filter === filter));
+  renderProgress();
+  renderPending();
+  renderRecent();
 
   const pool = filter === 'todo' ? todo : items;
   const { list, fuzzy } = search(query, pool);
   $('resultInfo').textContent =
     (query ? '「' + query + '」' + (fuzzy ? 'に近い候補 ' : 'で ') : '') + list.length + '件' +
-    (list.length === 0 && filter === 'todo' && query ? '(「全部」に切り替えると、数え終わった行も探せます)' : '');
+    (list.length === 0 && filter === 'todo' && query ? '(「全部」に切り替えると、数え終わった行も探せます)' : '') +
+    (list.length > 200 ? '(先頭の200件を表示。品名を話すと絞り込めます)' : '');
 
   const box = $('results');
   box.innerHTML = '';
@@ -843,6 +1049,7 @@ function renderList() {
     }
     for (const it of g) parent.appendChild(itemButton(it, g, g.length > 1 ? keyDiff(it, g) : {}));
   }
+  return list;
 }
 
 function itemButton(it, group, diff) {
@@ -881,16 +1088,41 @@ function itemButton(it, group, diff) {
   m2.className = 'meta';
   m2.textContent = it.kind + ' ・ 理論値 ' + fmtNum(it.theory) + (it.note ? ' ・ ' + it.note : '') + ' ・ ' + it.row + '行目';
   b.append(name, m1, m2);
-  b.addEventListener('click', () => openQty(it));
+  b.addEventListener('click', () => { clearBanner(); openQty(it); });
   return b;
 }
 
-// opts.target = 記録の一覧から「数を直す」を押したときの記録
+/* ---------- さっき入れた数(この端末で直近の3件) ---------- */
+let recents = [];   // {id, it, qty, person, time}
+function renderRecent() {
+  const box = $('recentList');
+  box.innerHTML = '';
+  const list = recents.slice(-3).reverse();
+  $('recentBox').hidden = list.length === 0;
+  for (const r of list) {
+    const row = document.createElement('div');
+    row.className = 'recent';
+    const n = document.createElement('div');
+    n.className = 'rn';
+    const b = document.createElement('b'); b.textContent = r.it.name;
+    const s = document.createElement('small'); s.textContent = (r.it.spec || '') + ' ' + (r.it.unit || '') + ' ・ 賞味 ' + (r.it.best || '-');
+    n.append(b, s);
+    const q = document.createElement('div'); q.className = 'rq'; q.textContent = r.qty;
+    const fix = document.createElement('button'); fix.type = 'button'; fix.className = 'btn'; fix.textContent = '直す';
+    fix.addEventListener('click', () => { clearBanner(); openQty(r.it, { target: { id: r.id, qty: r.qty, person: r.person, time: r.time }, after: 'search' }); });
+    row.append(n, q, fix);
+    box.appendChild(row);
+  }
+}
+function nowStamp() { const d = new Date(); return d.getFullYear() + '/' + String(d.getMonth() + 1).padStart(2, '0') + '/' + String(d.getDate()).padStart(2, '0') + ' ' + d.toTimeString().slice(0, 8); }
+
+// opts.target = 直す記録 / opts.after = 登録後に戻る画面
 function openQty(it, opts) {
   current = it;
   qtyTarget = (opts && opts.target) || null;
-  afterQty = qtyTarget ? 'log' : 'search';
+  afterQty = (opts && opts.after) || (qtyTarget ? 'log' : 'search');
   qtyMode = 'replace';
+  const usePending = pendingQty !== null && !qtyTarget;
   const sims = similarRows(it).map(x => x.it);
   const confirm = CONFIRM_SIMILAR && sims.length > 0 && !qtyTarget;
   const diff = confirm ? keyDiff(it, sims) : {};
@@ -904,7 +1136,6 @@ function openQty(it, opts) {
   $('selTheory').textContent = fmtNum(it.theory);
   $('selEntered').textContent = isCounted(it) ? String(entered[it.row]) : 'まだ';
   $('selCard').classList.toggle('confirm', confirm);
-  // ほかの似た行(押すとそちらに選び直す)
   const box = $('similarList');
   box.innerHTML = '';
   if (confirm) {
@@ -913,7 +1144,7 @@ function openQty(it, opts) {
       b.type = 'button';
       b.className = 'sib';
       const go = document.createElement('span'); go.className = 'go'; go.textContent = 'こちらに変える';
-      const od = fieldsDiff(o, it);   // 今選んでいる行と違うところに印
+      const od = fieldsDiff(o, it);
       const nm = document.createElement('div');
       nm.append(od.includes('name') ? nameWithMark(o, [it]) : o.name);
       const meta = document.createElement('div');
@@ -922,18 +1153,20 @@ function openQty(it, opts) {
       const be = document.createElement('span'); be.textContent = '賞味 ' + (o.best || '-'); if (od.includes('best')) be.className = 'diff';
       meta.append(sp, ' ・ ', un, ' ・ ', be, ' ・ 理論値 ' + fmtNum(o.theory) + (isCounted(o) ? ' ・ 入力済 ' + entered[o.row] : ''));
       b.append(go, nm, meta);
-      b.addEventListener('click', () => openQty(o));
+      b.addEventListener('click', () => openQty(o, { after: afterQty }));
       box.appendChild(b);
     }
   }
   $('similarBox').classList.toggle('show', confirm);
   $('selCard').dataset.confirm = confirm ? '1' : '';
+  $('qtyInput').value = usePending ? String(pendingQty) : '';
+  $('pendingBtn').hidden = !usePending;
   renderMode();
-  $('qtyInput').value = '';
-  $('qtyLive').textContent = confirm ? '(似た行があります。上の内容を確かめてから、マイクを押してください)' : '';
+  $('qtyLive').textContent = usePending ? '話した数:' + pendingQty
+    : confirm ? '(似た行があります。上の内容を確かめてから、マイクを押してください)' : '';
   showScreen('qty');
-  // 似た行がなければ、選んだらそのまま聞き取りを始める(ボタンを押す手間を減らす)
-  if (!confirm) listen($('qtyMic'), $('qtyLive'), onQtyVoice, onQtyNothing);
+  // 似た行がなく、数もまだ聞いていなければ、選んだらそのまま聞き取りを始める
+  if (!confirm && !usePending) listen($('qtyMic'), $('qtyLive'), onQtyVoice, onQtyNothing);
 }
 
 // 訂正(置き換え)/足す の表示
@@ -964,13 +1197,15 @@ function renderMode() {
     $('modeToggle').textContent = add ? 'やめる(置き換えに戻す)' : '別の場所の分として足す';
   }
   const confirm = $('selCard').dataset.confirm === '1';
+  const verb = add ? '足す' : show ? '訂正' : '登録';
   $('qtyMicLabel').textContent = confirm ? '合っていれば 数を話す' : add ? '足す数を話す' : show ? '正しい数を話す' : '数を話す';
-  $('qtySubmit').textContent = add ? '足す' : show ? '訂正' : '登録';
+  $('qtySubmit').textContent = verb;
+  if (pendingQty !== null) $('pendingBtn').textContent = '「' + pendingQty + '」で' + verb + 'する';
 }
 
 function leaveQty() {
   qtyTarget = null;
-  if (afterQty === 'log') openLog(); else showScreen('search');
+  if (afterQty === 'log') openLog(); else { showScreen('search'); renderList(); }
 }
 
 function showBanner(type, text, sub, withUndo) {
@@ -994,27 +1229,42 @@ function clearBanner() { $('banner').className = ''; $('banner').innerHTML = '';
 /* =========================================================
    7. 操作
    ========================================================= */
+function startSearchListening() {
+  if (screen !== 'search' || busy || recognition) return;
+  listen($('searchMic'), $('searchLive'), onSearchVoice, onSearchNothing);
+}
+
 function onSearchVoice(cands) {
   if (cands.some(c => isCommand(c, UNDO_WORDS))) { undoLast(); return; }
-  // 候補の中で、いちばん多く見つかった言い方を使う
-  const pool = filter === 'todo' ? items.filter(it => !(it.row in entered)) : items;
-  let best = cands[0];
-  let bestCount = -1;
+  // 候補の中で、いちばん多く見つかった言い方を使う(後ろに数が付いていれば分ける)
+  const pool = filter === 'todo' ? items.filter(it => !isCounted(it)) : items;
+  let best = null, bestCount = -1;
   for (const c of cands) {
-    const r = search(c, pool);
-    const score = r.list.length && !r.fuzzy ? 1000 + r.list.length : r.list.length;
-    if (score > bestCount) { bestCount = score; best = c; }
+    const sp = splitQty(c);
+    const tries = sp ? [{ q: sp.name, qty: sp.qty }, { q: c, qty: null }] : [{ q: c, qty: null }];
+    for (const t of tries) {
+      const r = search(t.q, pool);
+      const score = r.list.length && !r.fuzzy ? 1000 + r.list.length : r.list.length;
+      if (score > bestCount) { bestCount = score; best = t; }
+    }
   }
-  query = best.replace(/[。、]/g, '').trim();
+  query = best.q.replace(/[。、]/g, '').trim();
+  pendingQty = best.qty;
   $('searchInput').value = query;
-  renderList();
+  if (pendingQty !== null) $('searchLive').textContent = query + '/数 ' + pendingQty;
+  const list = renderList();
+  if (!list.length) feedback('warn');
+  // 候補が1行だけなら、選ぶ手間を省いてそのまま数の画面へ
+  if (list.length === 1 && !search(query, pool).fuzzy) openQty(list[0]);
 }
 
 function onSearchNothing() {
+  feedback('warn');
   showBanner('warn', '聞き取れませんでした', 'もう一度「品名を話す」を押して、品名の一部をはっきり話してください');
 }
 function onQtyNothing() {
-  showBanner('warn', '数が聞き取れませんでした', '「5」だけのような短い言葉は聞き取りにくいため、「5です」「3袋」のように後ろに言葉を付けて、もう一度「数を話す」を押してください');
+  feedback('warn');
+  showBanner('warn', '数が聞き取れませんでした', '「5」だけのような短い言葉は聞き取りにくいため、「5です」「3袋」のように後ろに言葉を付けて話すか、数字ボタンで入れてください');
 }
 
 function onQtyVoice(cands) {
@@ -1023,44 +1273,61 @@ function onQtyVoice(cands) {
     const n = parseQuantity(c);
     if (n !== null) { submitQty(n); return; }
   }
-  showBanner('warn', '数が聞き取れませんでした', '「5です」「3袋」のように話すか、下の欄に数字を入れて「登録」を押してください');
+  feedback('warn');
+  showBanner('warn', '数が聞き取れませんでした', '「5です」「3袋」のように話すか、数字ボタンで入れて「' + $('qtySubmit').textContent + '」を押してください');
 }
 
 async function submitQty(qty) {
   if (busy || !current) return;
-  if (!(qty >= 0 && qty <= 1000000)) { showBanner('warn', '数が正しくありません'); return; }
+  if (!(qty >= 0 && qty <= 1000000)) { feedback('warn'); showBanner('warn', '数が正しくありません'); return; }
+  stopListening();
   busy = true;
   const it = current;
   const mode = qtyMode;
+  const target = qtyTarget;
+  const back = afterQty;
+  const person = $('person').value.trim();
   showBanner('ok', '送信中…');
   try {
     const r = await apiPost({
       action: 'record', row: it.row, name: it.name, spec: it.spec, unit: it.unit, best: it.best,
-      qty: qty, person: $('person').value.trim(), mode: mode, target: qtyTarget ? qtyTarget.id : ''
+      qty: qty, person: person, mode: mode, target: target ? target.id : ''
     });
     if (!r.ok) {
+      feedback('warn');
       showBanner('warn', '記録できませんでした:' + r.error);
-      if (r.reload) { if (afterQty === 'log') { qtyTarget = null; await openLog(); } else await loadRows(); }
+      if (r.reload) { if (back === 'log') { qtyTarget = null; await openLog(); } else await loadRows(); }
       return;
     }
     if (r.enteredTotal === null) delete entered[it.row]; else entered[it.row] = r.enteredTotal;
     lastRecord = { id: r.id, it, qty };
-    let title;
-    if (r.replaced) title = '訂正しました:' + it.name + ' ' + r.before + ' → ' + qty;
-    else if (mode === 'add' && r.enteredTotal !== qty) title = '足しました:' + it.name + ' +' + qty + '(この行の合計 ' + r.enteredTotal + ')';
-    else title = '登録しました:' + it.name + ' → ' + qty;
+    // さっき入れた数の一覧を更新(置き換えた記録は外す。取り消したときに戻せるよう覚えておく)
+    const drop = target ? (x => x.id === target.id) : r.replaced ? (x => x.it.row === it.row) : (() => false);
+    lastRecord.replaced = recents.filter(drop);
+    recents = recents.filter(x => !drop(x));
+    recents.push({ id: r.id, it, qty, person: person || '(未入力)', time: nowStamp() });
+    if (recents.length > 20) recents = recents.slice(-20);
+
+    let title, spoken;
+    if (r.replaced) { title = '訂正しました:' + it.name + ' ' + r.before + ' → ' + qty; spoken = sayNum(qty) + 'に訂正しました'; }
+    else if (mode === 'add' && r.enteredTotal !== qty) { title = '足しました:' + it.name + ' +' + qty + '(この行の合計 ' + r.enteredTotal + ')'; spoken = sayNum(qty) + 'を足しました。合計' + sayNum(r.enteredTotal); }
+    else { title = '登録しました:' + it.name + ' → ' + qty; spoken = sayNum(qty) + '、登録しました'; }
     let sub = it.spec + ' ' + it.unit + ' ・ 賞味 ' + it.best;
     if (r.replaced && r.enteredTotal !== qty) sub += ' ・ この行の合計 ' + r.enteredTotal;
     if (r.wasApplied) sub += ' ・ 在庫数に反映済みだった数です。事務所が次に反映するときに置き換わります';
     const gap = typeof it.theory === 'number' && Math.abs(r.enteredTotal - it.theory) > Math.max(5, it.theory * 0.5);
-    if (gap) sub += ' ※理論値 ' + it.theory + ' と差があります。数に間違いがなければそのままで大丈夫です';
+    if (gap) { sub += ' ※理論値 ' + it.theory + ' と差があります。数に間違いがなければそのままで大丈夫です'; spoken += '。理論値と差があります'; }
+    feedback(gap ? 'warn' : 'ok');
     showBanner(gap ? 'warn' : 'ok', title, sub, true);
     query = '';
+    pendingQty = null;
     $('searchInput').value = '';
     $('searchLive').textContent = '';
-    renderList();
     leaveQty();
+    // 読み上げが終わってから、次の品名を聞き始める(読み上げの声を拾わないため)
+    say(spoken, () => { if (prefs.cont && back === 'search' && !gap) startSearchListening(); });
   } catch (e) {
+    feedback('warn');
     showBanner('warn', '送信できませんでした(ネット接続を確認して、もう一度「' + $('qtySubmit').textContent + '」を押してください)');
   } finally {
     busy = false;
@@ -1069,20 +1336,25 @@ async function submitQty(qty) {
 
 // 直前の記録を取り消す(訂正だったときは、訂正前の数に戻す)
 async function undoLast() {
-  if (!lastRecord) { showBanner('warn', '取り消す記録がありません'); return; }
+  if (!lastRecord) { feedback('warn'); showBanner('warn', '取り消す記録がありません'); return; }
   if (busy) return;
   busy = true;
   const rec = lastRecord;
   try {
     const r = await apiPost({ action: 'cancel', id: rec.id, restore: true });
-    if (!r.ok) { showBanner('warn', '取り消せませんでした:' + r.error); return; }
+    if (!r.ok) { feedback('warn'); showBanner('warn', '取り消せませんでした:' + r.error); return; }
     if (r.enteredTotal === null) delete entered[rec.it.row]; else entered[rec.it.row] = r.enteredTotal;
     lastRecord = null;
+    recents = recents.filter(x => x.id !== rec.id);
+    if (r.restored && rec.replaced) recents = recents.concat(rec.replaced);
+    feedback('ok');
     showBanner('ok', '取り消しました:' + rec.it.name + ' → ' + rec.qty,
       r.restored ? '訂正前の数(' + r.restoredQty + ')に戻しました' : '');
+    say('取り消しました');
     renderList();
-    if ($('logScreen').style.display === 'block') openLog();
+    if (screen === 'log') openLog();
   } catch (e) {
+    feedback('warn');
     showBanner('warn', '送信できませんでした(ネット接続を確認してください)');
   } finally {
     busy = false;
@@ -1157,7 +1429,7 @@ function recordCard(rec) {
     const it = items.find(i => i.row === rec.row && i.name === rec.name && i.spec === rec.spec && i.unit === rec.unit && i.best === rec.best);
     const fix = document.createElement('button');
     fix.type = 'button'; fix.className = 'btn'; fix.textContent = '数を直す';
-    if (it) fix.addEventListener('click', () => { clearBanner(); openQty(it, { target: rec }); });
+    if (it) fix.addEventListener('click', () => { clearBanner(); pendingQty = null; openQty(it, { target: rec }); });
     else { fix.disabled = true; fix.title = '棚卸表の行が変わったため直せません(「最新にする」を押してください)'; }
     const del = document.createElement('button');
     del.type = 'button'; del.className = 'btn danger'; del.textContent = '取り消す';
@@ -1183,15 +1455,18 @@ async function cancelRecord(rec) {
   busy = true;
   try {
     const r = await apiPost({ action: 'cancel', id: rec.id });
-    if (!r.ok) { showBanner('warn', '取り消せませんでした:' + r.error); if (r.reload) await openLog(); return; }
+    if (!r.ok) { feedback('warn'); showBanner('warn', '取り消せませんでした:' + r.error); if (r.reload) { busy = false; await openLog(); } return; }
     if (r.enteredTotal === null) delete entered[rec.row]; else entered[rec.row] = r.enteredTotal;
     if (lastRecord && lastRecord.id === rec.id) lastRecord = null;
+    recents = recents.filter(x => x.id !== rec.id);
+    feedback('ok');
     showBanner('ok', '取り消しました:' + rec.name + ' → ' + rec.qty,
       (r.wasApplied ? '在庫数に反映済みだった数です。事務所が次に反映するときに直ります' : ''));
     renderList();
     busy = false;
     await openLog();
   } catch (e) {
+    feedback('warn');
     showBanner('warn', '送信できませんでした(ネット接続を確認してください)');
   } finally {
     busy = false;
@@ -1203,36 +1478,77 @@ async function cancelRecord(rec) {
    ========================================================= */
 (function init() {
   if (DEMO) $('demoBar').style.display = 'block';
+  applyPrefs();
+  document.addEventListener('visibilitychange', keepAwake);
+
+  // 担当者名(この端末に覚える)
+  const person = $('person');
+  person.value = loadPerson();
+  const markPerson = () => person.classList.toggle('need', !person.value.trim());
+  markPerson();
+  person.addEventListener('input', () => { savePerson(person.value.trim()); markPerson(); });
+
   if (!SpeechRec) {
     $('searchMic').disabled = true;
     $('qtyMic').disabled = true;
-    showBanner('warn', 'このブラウザは音声入力に対応していません', 'パソコン・AndroidはGoogle Chrome、iPhone・iPadはSafariで開いてください。文字入力なら使えます。');
+    showBanner('warn', 'このブラウザは音声入力に対応していません', 'パソコン・AndroidはGoogle Chrome、iPhone・iPadはSafariで開いてください。文字と数字ボタンなら使えます。');
   }
   $('searchMic').addEventListener('click', () => { clearBanner(); listen($('searchMic'), $('searchLive'), onSearchVoice, onSearchNothing); });
   $('qtyMic').addEventListener('click', () => listen($('qtyMic'), $('qtyLive'), onQtyVoice, onQtyNothing));
-  $('searchInput').addEventListener('input', () => { query = $('searchInput').value; renderList(); });
-  $('clearSearch').addEventListener('click', () => { query = ''; $('searchInput').value = ''; $('searchLive').textContent = ''; renderList(); });
+  $('searchInput').addEventListener('input', () => { query = $('searchInput').value; pendingQty = null; renderList(); });
+  $('clearSearch').addEventListener('click', () => { query = ''; pendingQty = null; $('searchInput').value = ''; $('searchLive').textContent = ''; renderList(); });
   document.querySelectorAll('.chip[data-filter]').forEach(c => c.addEventListener('click', () => { filter = c.dataset.filter; renderList(); }));
   $('qtySubmit').addEventListener('click', () => {
     const n = parseQuantity($('qtyInput').value);
-    if (n === null) { showBanner('warn', '数を入れてください'); return; }
+    if (n === null) { feedback('warn'); showBanner('warn', '数を入れてください'); return; }
     submitQty(n);
   });
+  $('pendingBtn').addEventListener('click', () => { if (pendingQty !== null) submitQty(pendingQty); });
   $('qtyInput').addEventListener('keydown', e => { if (e.key === 'Enter') $('qtySubmit').click(); });
+  // 数字ボタン
+  $('pad').addEventListener('click', e => {
+    const k = e.target.closest('button') && e.target.closest('button').dataset.k;
+    if (!k) return;
+    stopListening();
+    const inp = $('qtyInput');
+    let v = inp.value;
+    if (k === 'del') v = v.slice(0, -1);
+    else if (k === 'clr') v = '';
+    else if (k === 'half') v = '0.5';
+    else if (k === 'none') v = '0';
+    else if (k === '.') { if (!v.includes('.')) v = (v || '0') + '.'; }
+    else v = (v === '0' ? '' : v) + k;
+    inp.value = v;
+    $('pendingBtn').hidden = true;
+  });
   $('backBtn').addEventListener('click', leaveQty);
   $('modeToggle').addEventListener('click', () => { qtyMode = qtyMode === 'add' ? 'replace' : 'add'; renderMode(); });
   $('logBtn').addEventListener('click', () => { stopListening(); openLog(); });
-  $('logBack').addEventListener('click', () => showScreen('search'));
+  $('logBack').addEventListener('click', () => { showScreen('search'); renderList(); });
   document.querySelectorAll('.lchip').forEach(c => c.addEventListener('click', () => { logWho = c.dataset.who; renderLog(); }));
   $('logShowGone').addEventListener('change', renderLog);
   $('reloadBtn').addEventListener('click', loadRows);
+
+  // 設定
+  $('settingsBtn').addEventListener('click', () => { stopListening(); $('settings').hidden = false; });
+  $('settingsClose').addEventListener('click', () => { $('settings').hidden = true; });
+  $('settings').addEventListener('click', e => { if (e.target === $('settings')) $('settings').hidden = true; });
+  document.querySelectorAll('[data-pref]').forEach(cb => cb.addEventListener('change', () => {
+    prefs[cb.dataset.pref] = cb.checked;
+    savePrefs();
+    applyPrefs();
+    if (cb.dataset.pref === 'speak' && cb.checked) say('読み上げをオンにしました');
+    if (cb.dataset.pref === 'beep' && cb.checked) feedback('ok');
+  }));
+
   // パソコンではスペースキーでもマイクを押せる(文字入力中は除く)
   document.addEventListener('keydown', e => {
-    if (e.code !== 'Space' || /^(INPUT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)) return;
+    if (e.code !== 'Space' || !$('settings').hidden || /^(INPUT|TEXTAREA|BUTTON)$/.test(document.activeElement.tagName)) return;
     e.preventDefault();
-    if ($('qtyScreen').style.display === 'block') $('qtyMic').click();
-    else if ($('searchScreen').style.display === 'block') $('searchMic').click();
+    if (screen === 'qty') $('qtyMic').click();
+    else if (screen === 'search') $('searchMic').click();
   });
+  showScreen('none');
   loadBooks();
 })();
 </script>
